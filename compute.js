@@ -263,7 +263,36 @@
         m.transfers[r] = n; tot += n; prevTeam = t;
       });
       m.totalTransfers = tot;
+
+      // their star of the latest round: the driver in their team who scored most
+      m.star = null;
+      var lastR = played.length ? played[played.length - 1] : null;
+      var lp = lastR != null ? (data.assetPoints || {})[lastR] : null;
+      if (lp) (m.team_[lastR] || []).forEach(function (id) {
+        var a = (data.assets || {})[id];
+        if (a && a.type === "D" && lp[id] != null && (!m.star || lp[id] > m.star.pts)) m.star = { id: id, pts: lp[id], round: lastR };
+      });
     });
+
+    // Dream team: the best five drivers and two constructors of each round as
+    // F1 Fantasy scored them, top driver boosted 2x, no cost cap, at that
+    // round's prices.
+    function teamOfWeek(r) {
+      var pts = (data.assetPoints || {})[r], pr = (data.prices || {})[r] || {};
+      if (!pts) return null;
+      var all = Object.keys(pts).filter(function (id) { return assets[id]; }).map(function (id) { return { id: id, pts: pts[id], price: pr[id] }; });
+      var pick = function (type, n) {
+        return all.filter(function (x) { return assets[x.id].type === type; })
+          .sort(function (a, b) { return b.pts - a.pts || (a.price || 0) - (b.price || 0); }).slice(0, n);
+      };
+      var d = pick("D", 5), c = pick("C", 2);
+      var list = d.concat(c);
+      // F1's own Team of the Week boosts its best driver 2x; so does this
+      var boosted = d.length ? d[0].id : null;
+      return { drivers: d, constructors: c, boosted: boosted,
+        pts: sum(list.map(function (x) { return x.pts; })) + (d.length ? d[0].pts : 0),
+        cost: round1(sum(list.map(function (x) { return x.price || 0; }))) };
+    }
 
     // per-round summary
     var roundInfo = rounds.map(function (r) {
@@ -275,6 +304,7 @@
         round: r, name: s.name || "Round " + r, short: s.short || ("R" + r), sprint: !!s.sprint, date: s.race || null,
         avg: mean(vals), high: hi, low: lo, count: played.length,
         winners: played.filter(function (m) { return m.pts[r] === hi; }),
+        totw: teamOfWeek(r),
         losers: played.filter(function (m) { return m.pts[r] === lo; })
       };
     });

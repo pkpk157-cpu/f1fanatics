@@ -27,6 +27,23 @@ highlights you everywhere and is saved on that device only. It also has Dark, Li
 the F1 Fantasy 2026 game rules (scoring, chips, transfers, prices, in
 `rules.js`, taken from F1 Fantasy's official rules text), and the About the data page.
 
+### The look
+
+Standings and round winners are drawn like F1's broadcast standings graphic:
+red position numbers, a bar in team colours, and the points in a red block
+(gold for the leader). Each manager's bar uses the team colours and face of
+their top-scoring driver in the latest round. Teams are shown as cards in the
+style of F1 Fantasy's team builder and Team of the Week. Each round's page
+has a **Dream team**: the best five drivers and two constructors of that
+round, with the top driver boosted 2× and no cost cap.
+
+Team colours come from F1 Fantasy's own image config. Driver headshots,
+constructor cars and logos are mirrored into `photos/` by the **Driver
+photos** workflow (`scripts/fetch-photos.js`), which runs daily and on
+demand. The app never loads images from F1. Anything not mirrored yet shows
+initials. The display type is Titillium Web (SIL Open Font License, in
+`fonts/`).
+
 ## Where the data comes from
 
 F1 Fantasy's public feeds. No login and no API key:

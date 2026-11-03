@@ -48,7 +48,82 @@
     "Aston Martin": "#229971", "Alpine": "#0093cc", "Williams": "#1868db", "Racing Bulls": "#6692ff",
     "Haas F1 Team": "#9c9fa2", "Audi": "#b4b4b4", "Cadillac": "#c9a227", "Kick Sauber": "#52e252"
   };
-  function teamColor(t) { return TEAM_COLORS[t] || "#888"; }
+  // F1's own 2026 team colours from data.json, these only as a fallback
+  function teamColor(t) { return (S.data && S.data.teamColors && S.data.teamColors[t]) || TEAM_COLORS[t] || "#888"; }
+  // black or white text, whichever reads better on a team colour
+  function ink(hex) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ""); if (!m) return "#fff";
+    var c = [m[1], m[2], m[3]].map(function (x) { x = parseInt(x, 16) / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+    var L = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    return L > 0.36 ? "#0b0b0d" : "#fff";
+  }
+  function tc(hex) { return "--tc:" + hex + ";--ink:" + ink(hex); }
+  function assetOf(id) { return (S.data && S.data.assets && S.data.assets[id]) || null; }
+  function priceNow(id) { var M = S.model, p = M && M.priceRound != null ? S.data.prices[M.priceRound] : null; return p && p[id] != null ? p[id] : null; }
+  function priceMove(id) {
+    var M = S.model; if (!M || M.priceRound == null) return null;
+    var a = S.data.prices[M.priceRound], b = S.data.prices[M.priceRound - 1];
+    return a && b && a[id] != null && b[id] != null ? Math.round((a[id] - b[id]) * 10) / 10 : null;
+  }
+  function initials(a) {
+    if (!a) return "?";
+    if (a.type === "C") return esc(a.name.split(" ").map(function (w) { return w.charAt(0); }).join("").slice(0, 3));
+    return esc(a.short || "?");
+  }
+  // a picture from photos/ (mirrored by the photos workflow), or initials
+  function pic(id, kind, cls) {
+    var a = assetOf(id), ph = S.photos && S.photos[id] && S.photos[id][kind];
+    if (ph) return '<img class="' + (cls || "") + '" src="' + esc(ph) + '" alt="" loading="lazy" decoding="async" />';
+    return '<span class="' + (cls || "") + ' noimg">' + initials(a) + "</span>";
+  }
+  function splitName(a) {
+    if (!a) return { first: "", last: "?" };
+    if (a.type === "C") return { first: "", last: a.name };
+    return { first: a.first || (a.full || a.name).split(" ").slice(0, -1).join(" "), last: a.last || (a.full || a.name).split(" ").slice(-1)[0] };
+  }
+  function signedMoney(v) { return v == null || v === 0 ? "" : '<span class="' + (v > 0 ? "up" : "down") + '">' + (v > 0 ? "▲" : "▼") + "$" + fmt(Math.abs(v), 1) + "m</span>"; }
+
+  /* F1-graphic standings row: red position, team-colour bar, red points block */
+  function standRow(o) {
+    return '<div class="srow' + (o.me ? " me" : "") + (o.lead ? " lead" : "") + '"' + (o.attr || "") + ' style="' + tc(o.color) + '">' +
+      '<div class="spos">' + esc(o.pos) + "</div>" +
+      '<div class="sbar">' + (o.face || "") + '<div class="snm"><div class="sname">' + o.name + "</div>" + (o.sub ? '<div class="ssub">' + o.sub + "</div>" : "") + "</div></div>" +
+      '<div class="spts"><span class="num">' + o.pts + "</span>" + (o.ptsSub ? "<small>" + o.ptsSub + "</small>" : "") + "</div></div>";
+  }
+  function managerName(m) {
+    var p = m.name.split(" "), last = p.length > 1 ? p.pop() : p[0], first = p.length ? p.join(" ") : "";
+    return (first ? '<span class="fn">' + esc(first) + "</span> " : "") + "<b>" + esc(last) + "</b>" + (isMe(m) ? ' <span class="pill me">you</span>' : "");
+  }
+
+  /* team-builder / Team of the Week card */
+  function assetCard(id, o) {
+    o = o || {};
+    var a = assetOf(id); if (!a) return "";
+    var n = splitName(a), col = teamColor(a.team);
+    var img = a.type === "C" ? pic(id, "car", "acar") + pic(id, "logo", "alogo") : pic(id, "head", "ahead");
+    return '<div class="acard ' + (a.type === "C" ? "con" : "drv") + '" data-a="' + esc(id) + '" style="' + tc(col) + '">' +
+      (o.boost ? '<span class="boost">' + esc(o.boost) + "</span>" : "") +
+      '<div class="aimg">' + img + "</div>" +
+      '<div class="aname' + (n.last.length > 9 ? " xlong" : n.last.length > 7 ? " long" : "") + '">' + (n.first ? '<span class="fn">' + esc(n.first.charAt(0)) + ".</span> " : "") + "<b>" + esc(n.last) + "</b></div>" +
+      '<div class="ameta"><span>' + money(o.price != null ? o.price : priceNow(id)) + "</span>" + (o.move !== false ? signedMoney(priceMove(id)) : "") + (o.extra ? '<span class="muted">' + o.extra + "</span>" : "") + "</div>" +
+      (o.pts != null ? '<div class="apts">' + fmt(o.pts) + " pts" + (o.ptsNote ? " <small>" + esc(o.ptsNote) + "</small>" : "") + "</div>" : "") +
+      "</div>";
+  }
+  function teamGrid(drivers, constructors, opt) {
+    return '<div class="pitch"><div class="prow">' + drivers.map(function (x) { return assetCard(x.id, opt(x)); }).join("") + '</div><div class="pline"></div><div class="prow">' +
+      constructors.map(function (x) { return assetCard(x.id, opt(x)); }).join("") + "</div></div>";
+  }
+
+  /* list row with a photo tile, F1 Fantasy "my team" style */
+  function assetRow(id, right, sub, attr) {
+    var a = assetOf(id); if (!a) return "";
+    var n = splitName(a);
+    var img = a.type === "C" ? pic(id, "car", "tcar") : pic(id, "head", "thead");
+    return '<div class="arow"' + (attr || ' data-a="' + esc(id) + '"') + ' style="' + tc(teamColor(a.team)) + '"><div class="tile2">' + img +
+      (a.type === "C" ? "" : '<span class="tla">' + esc(a.short || "") + "</span>") + '</div><div class="anm">' +
+      (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b>" + (sub ? '<small>' + sub + "</small>" : "") + "</div>" +
+      '<div class="apill">' + right + "</div></div>";
+  }
   function assetLabel(a, withTeam) {
     if (!a) return "?";
     return a.type === "C" ? esc(a.name) : esc(a.name) + (withTeam ? ' <span class="muted">· ' + esc(a.team) + "</span>" : "");
@@ -149,16 +224,20 @@
     else h += tile("Season", M.N + " / " + (M.N + M.remaining), M.remaining + " rounds to go");
     h += "</section>";
 
-    h += '<section class="card"><h2>Overall standings</h2><p class="sub">After ' + esc(lastInfo ? lastInfo.name : "round " + M.N) +
-      ". ▲▼ = places moved in the last round. Tap a manager for their season.</p>";
-    h += '<div class="tblwrap"><table><thead><tr><th class="c">#</th><th class="c"></th><th class="l">Manager</th><th title="Points in the last round">' +
-      (lastInfo ? '<span title="' + esc(lastInfo.name) + '">' + esc(abbr(lastInfo.short)) + "</span>" : "Last") + '</th><th>Total</th><th title="Behind the leader">Gap</th></tr></thead><tbody>';
+    h += '<section class="board"><div class="board-h"><div class="board-t">League standings</div><div class="board-s">Points after the ' + esc(d0(lastInfo)) + "</div></div>";
     M.managers.forEach(function (m) {
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="pos">' + m.rank + "</td>" + moveCell(m.move) + whoCell(m) +
-        '<td style="' + heat(m.roundRank[M.N], lastInfo ? lastInfo.count : 0) + '">' + fmt(m.last) + '</td><td class="num">' + fmt(m.total) +
-        '</td><td class="muted">' + (m.gapLeader ? "−" + fmt(m.gapLeader) : "—") + "</td></tr>";
+      var star = m.star ? assetOf(m.star.id) : null;
+      var mv = m.move > 0 ? '<span class="up">▲' + m.move + "</span>" : m.move < 0 ? '<span class="down">▼' + -m.move + "</span>" : "";
+      h += standRow({
+        pos: m.rank, me: isMe(m), lead: m === M.leader, attr: ' data-m="' + esc(m.id) + '"',
+        color: star ? teamColor(star.team) : "#3a3a40",
+        face: m.star ? pic(m.star.id, "head", "sface") : "",
+        name: managerName(m),
+        sub: esc(m.team) + (lastInfo ? " · " + esc(abbr(lastInfo.short)) + " " + fmt(m.last) : "") + (mv ? " " + mv : ""),
+        pts: fmt(m.total), ptsSub: m.gapLeader ? "−" + fmt(m.gapLeader) : ""
+      });
     });
-    h += "</tbody></table></div></section>";
+    h += '<p class="board-note">Each row wears the team colours of that manager\'s top-scoring driver in ' + esc(lastInfo ? lastInfo.name : "the last round") + ". ▲▼ = places moved. Tap a manager for their season.</p></section>";
 
     // quick form glance
     h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds, newest on the right. Purple = won the round, green = top third, red = bottom third.</p><div class="rows">';
@@ -170,6 +249,7 @@
     h += "</div></section>";
     return h;
   }
+  function d0(ri) { return ri ? S.data.league.season + " " + ri.name : "round " + S.model.N; }
   function tile(k, v, d) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="d">' + (d || "") + "</div></div>"; }
 
   function viewRaces() {
@@ -199,14 +279,22 @@
     }
     h += "</section>";
 
-    h += '<section class="card"><h2>Rounds</h2><p class="sub">Newest first. Tap a round for its full result.</p><div class="rows">';
+    h += '<section class="board"><div class="board-h"><div class="board-t">Round winners</div><div class="board-s">Top score in the league each round · tap for the full result</div></div>';
     M.roundInfo.slice().reverse().forEach(function (ri) {
-      h += '<div class="row click" data-r="' + ri.round + '"><div class="rk">' + ri.round + '</div><div class="main"><div class="n">' + esc(ri.name) +
-        (ri.sprint ? ' <span class="pill">sprint</span>' : "") + '</div><div class="t">' +
-        ri.winners.map(function (m) { return "🏆 " + esc(m.name); }).join(", ") + " · avg " + fmt(ri.avg) + " · low " + fmt(ri.low) +
-        '</div></div><div class="big">' + fmt(ri.high) + "</div></div>";
+      var w = ri.winners[0];
+      // the winning team's best driver that round, for the colours and the face
+      var best = null, pts = (S.data.assetPoints || {})[ri.round] || {};
+      if (w) (w.team_[ri.round] || []).forEach(function (id) { var a = assetOf(id); if (a && a.type === "D" && pts[id] != null && (!best || pts[id] > pts[best])) best = id; });
+      h += standRow({
+        pos: ri.round, attr: ' data-r="' + ri.round + '"', me: ri.winners.some(isMe),
+        color: best ? teamColor(assetOf(best).team) : "#3a3a40",
+        face: best ? pic(best, "head", "sface") : "",
+        name: "<b>" + esc(ri.short) + "</b>",
+        sub: "🏆 " + esc(ri.winners.map(function (m) { return m.name; }).join(" & ")) + " · avg " + fmt(ri.avg) + (ri.sprint ? " · sprint" : ""),
+        pts: fmt(ri.high)
+      });
     });
-    h += "</div></section>";
+    h += "</section>";
     return h;
   }
   function abbr(s) {
@@ -420,48 +508,40 @@
 
   function viewPicks() {
     var M = S.model, h = "", n = M.managers.length;
-    var asOf = "Teams as F1 last published them (round " + M.N + "). Changes made for the next race show up once it's scored.";
+    var weekPrices = M.priceRound > M.N ? "this week's" : "current";
     // template
     var tD = M.drivers.filter(function (o) { return o.count; }).slice(0, 5), tC = M.constructors.filter(function (o) { return o.count; }).slice(0, 2);
-    h += '<section class="card"><h2>The league template</h2><p class="sub">The five most-owned drivers and two most-owned constructors. ' + esc(asOf) + '</p><div class="team">' +
-      tD.concat(tC).map(function (o) { return assetChip(o, o.count + "/" + n); }).join("") + "</div>";
     var tv = tD.concat(tC).reduce(function (s, o) { return s + (o.price || 0); }, 0);
-    h += '<p class="sub" style="margin:10px 0 0">Costs ' + money(tv) + " at " + (M.priceRound > M.N ? "this week's" : "current") + " prices.</p></section>";
+    h += '<section class="card"><div class="totw-h"><div><div class="k">Cost</div><div class="v">' + money(tv) + '</div></div><div class="ttl"><b>The league template</b><span>most-owned five drivers + two constructors</span></div><div class="r"><div class="k">Owned by</div><div class="v">' + n + "</div></div></div>" +
+      teamGrid(tD, tC, function (o) { return { price: o.price, extra: o.count + "/" + n + " own" }; }) +
+      '<p class="sub" style="margin:12px 0 0">Teams as F1 last published them (round ' + M.N + ") at " + weekPrices + " prices. Changes for the next race show once it's scored.</p></section>";
 
     h += ownershipCard("Drivers", M.drivers, n);
     h += ownershipCard("Constructors", M.constructors, n);
 
     // differentials
     var diffs = M.ownership.filter(function (o) { return o.count === 1; });
-    h += '<section class="card"><h2>Differentials</h2><p class="sub">Picks only one manager in the league owns.</p><div class="rows">' +
+    h += '<section class="card"><h2>Differentials</h2><p class="sub">Picks only one manager in the league owns.</p><div class="alist">' +
       (diffs.length ? diffs.map(function (o) {
         var m = o.owners[0];
-        return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-a="' + esc(o.id) + '"><span class="teamdot" style="background:' + teamColor(o.asset.team) + '"></span><div class="main"><div class="n">' +
-          assetLabel(o.asset, true) + '</div><div class="t">' + esc(m.name) + " · " + money(o.price) + " · " + (o.global != null ? o.global + "% overall" : "") + '</div></div></div>';
+        return assetRow(o.id, '<span class="k">' + esc(m.name.split(" ")[0]) + "</span>", money(o.price) + (o.global != null ? " · " + o.global + "% overall" : ""));
       }).join("") : '<div class="empty">None — everyone owns something someone else does.</div>') + "</div></section>";
 
     // season-long
-    var season = M.ownership.filter(function (o) { return o.seasonCount; }).slice().sort(function (a, b) { return b.seasonPct - a.seasonPct; }).slice(0, 12);
-    h += '<section class="card"><h2>Most trusted this season</h2><p class="sub">Share of all manager-rounds a pick was in a team, rounds 1–' + M.N + '.</p><div class="bars">' +
+    var season = M.ownership.filter(function (o) { return o.seasonCount; }).slice().sort(function (a, b) { return b.seasonPct - a.seasonPct; }).slice(0, 10);
+    h += '<section class="card"><h2>Most trusted this season</h2><p class="sub">Share of all manager-rounds a pick was in a team, rounds 1–' + M.N + '.</p><div class="alist">' +
       season.map(function (o) {
-        return '<div class="bar" data-a="' + esc(o.id) + '"><div class="lbl"><span class="teamdot" style="background:' + teamColor(o.asset.team) + '"></span><div style="min-width:0"><div class="nm">' + esc(o.asset.name) +
-          '</div><div class="tm">' + esc(o.asset.type === "C" ? "Constructor" : o.asset.team) + '</div></div></div><div class="track"><div class="fill" style="width:' + o.seasonPct.toFixed(1) + "%;background:" + teamColor(o.asset.team) +
-          '"></div></div><div class="val">' + fmt(o.seasonPct) + "%</div></div>";
+        return assetRow(o.id, '<b>' + fmt(o.seasonPct) + "%</b>", '<span class="minibar"><i style="width:' + o.seasonPct.toFixed(1) + '%"></i></span>');
       }).join("") + "</div></section>";
     return h;
   }
-  function assetChip(o, extra) {
-    return '<span class="asset" data-a="' + esc(o.id) + '"><span class="teamdot" style="background:' + teamColor(o.asset.team) + '"></span><b>' + esc(o.asset.type === "C" ? o.asset.name : o.asset.short) +
-      '</b><span class="pr">' + money(o.price) + (extra ? " · " + extra : "") + "</span></span>";
-  }
   function ownershipCard(title, list, n) {
     var rows = list.filter(function (o) { return o.count || (o.global && o.active); });
-    return '<section class="card"><h2>' + title + ' — league ownership</h2><p class="sub">Bar = share of the league\'s current teams; the dark tick = share across the whole game. Tap for owners.</p><div class="bars">' +
+    return '<section class="card"><h2>' + title + '</h2><p class="sub">Owned in the league now, against the share of all F1 Fantasy teams. Tap for owners.</p><div class="alist">' +
       rows.map(function (o) {
-        return '<div class="bar" data-a="' + esc(o.id) + '"><div class="lbl"><span class="teamdot" style="background:' + teamColor(o.asset.team) + '"></span><div style="min-width:0"><div class="nm">' + esc(o.asset.name) +
-          '</div><div class="tm">' + (o.asset.type === "C" ? "" : esc(o.asset.team) + " · ") + money(o.price) + '</div></div></div><div class="track"><div class="fill" style="width:' + o.pct.toFixed(1) + "%;background:" + teamColor(o.asset.team) +
-          '"></div>' + (o.global != null ? '<div class="gmark" style="left:calc(' + Math.min(100, o.global) + '% - 1px)" title="' + o.global + '% of all F1 Fantasy teams"></div>' : "") +
-          '</div><div class="val">' + o.count + "/" + n + "</div></div>";
+        return assetRow(o.id, "<b>" + o.count + "/" + n + '</b><span class="k">' + (o.global != null ? o.global + "% all" : "") + "</span>",
+          money(o.price) + " " + signedMoney(priceMove(o.id)) + '<span class="minibar"><i style="width:' + o.pct.toFixed(1) + '%"></i>' +
+          (o.global != null ? '<em style="left:' + Math.min(100, o.global) + '%"></em>' : "") + "</span>");
       }).join("") + "</div></section>";
   }
 
@@ -486,8 +566,13 @@
       tile("Best weekend", fmt(m.best && m.best.pts), m.best ? esc(roundLabel(m.best.round)) : "") + tile("Worst weekend", fmt(m.worst && m.worst.pts), m.worst ? esc(roundLabel(m.worst.round)) : "") + "</section>";
     h += '<section class="hero">' + tile("Round wins", m.wins, m.podiums + " top-three") + tile("Form (last 5)", fmt(m.form5), signed(m.formVsAvg) + " vs season") +
       tile("Team value", money(m.currentValue), m.valueGain != null ? signed(m.valueGain, 1) + "m since round " + m.joinRound : "") + tile("Highest / lowest", (m.bestRank ? ordinal(m.bestRank) : "–") + " / " + (m.worstRank ? ordinal(m.worstRank) : "–"), "league position") + "</section>";
-    h += '<section class="card"><h2>Current team</h2><p class="sub">As used in round ' + M.N + " · at " + (M.priceRound > M.N ? "this week's" : "current") + ' prices · league ownership</p><div class="team">' +
-      m.picks.map(function (id) { return o[id] ? assetChip(o[id], o[id].count + "/" + n) : ""; }).join("") + "</div></section>";
+    var lp = (S.data.assetPoints || {})[M.N] || {};
+    var drv = m.picks.filter(function (id) { return (assetOf(id) || {}).type === "D"; }).map(function (id) { return { id: id }; });
+    var con = m.picks.filter(function (id) { return (assetOf(id) || {}).type === "C"; }).map(function (id) { return { id: id }; });
+    h += '<section class="card"><div class="totw-h"><div><div class="k">Team value</div><div class="v">' + money(m.currentValue) + '</div></div><div class="ttl"><b>Current team</b><span>as used in ' + esc(roundName(M.N)) +
+      '</span></div><div class="r"><div class="k">' + esc(abbr(roundName(M.N))) + ' points</div><div class="v">' + fmt(m.last) + "</div></div></div>" +
+      teamGrid(drv, con, function (x) { return { pts: lp[x.id], extra: (o[x.id] ? o[x.id].count + "/" + n + " own" : "") }; }) +
+      '<p class="sub" style="margin:12px 0 0">Prices are ' + (M.priceRound > M.N ? "this week's" : "current") + " with the change since last round; points are F1 Fantasy's for " + esc(roundName(M.N)) + " before any Boost or chip.</p></section>";
     h += '<section class="card"><h2>League position</h2><div class="chartbox" data-chart="rank" data-only="' + esc(m.id) + '"></div></section>';
     if (m.preJoin) h += '<p class="sub">Joined the league from round ' + m.joinRound + "; " + fmt(m.preJoin) + " points scored before that are in the total but not in the rounds below.</p>";
     h += '<section class="card"><h2>Round by round</h2><div class="tblwrap"><table><thead><tr><th class="l">Round</th><th>Pts</th><th>Round</th><th>League</th><th>Value</th><th>Changes</th></tr></thead><tbody>';
@@ -516,16 +601,25 @@
         '</td><td class="' + (m.pts[r] >= ri.avg ? "up" : "down") + '">' + signed(m.pts[r] - ri.avg) + "</td><td>" + (m.rankAt[r] ? ordinal(m.rankAt[r]) : "–") + "</td>" + moveCell(mv) + "</tr>";
     });
     h += "</tbody></table></div></section>";
-    // what the drivers did
+    // dream team: the best possible seven that round
+    if (ri.totw) {
+      var t = ri.totw;
+      h += '<section class="card totw"><div class="totw-h"><div><div class="k">Cost</div><div class="v">' + money(t.cost) + '</div></div><div class="ttl"><b>Dream team</b><span>Round ' + r + " · " + esc(ri.short) +
+        '</span></div><div class="r"><div class="k">Points</div><div class="v">' + fmt(t.pts) + "</div></div></div>" +
+        teamGrid(t.drivers, t.constructors, function (x) {
+          var b = x.id === t.boosted;
+          return { price: x.price, move: false, pts: b ? x.pts * 2 : x.pts, boost: b ? "2×" : "" };
+        }) +
+        '<p class="sub" style="margin:12px 0 0">The best five drivers and two constructors of the round, top driver boosted 2×, no cost cap. Beat ' +
+        (t.pts > ri.high ? "the league's best (" + fmt(ri.high) + ") by " + fmt(t.pts - ri.high) : "by " + esc(ri.winners[0].name)) + ".</p></section>";
+    }
     var pts = S.data.assetPoints && S.data.assetPoints[r];
     if (pts) {
-      var top = Object.keys(pts).map(function (id) { return { a: S.data.assets[id], p: pts[id], id: id }; }).filter(function (x) { return x.a; })
-        .sort(function (a, b) { return b.p - a.p; });
+      var top = Object.keys(pts).filter(function (id) { return assetOf(id); }).sort(function (a, b) { return pts[b] - pts[a]; });
       var own = {}; list.forEach(function (m) { (m.team_[r] || []).forEach(function (id) { own[id] = (own[id] || 0) + 1; }); });
-      h += '<section class="card"><h2>Who scored</h2><p class="sub">F1 Fantasy points for each pick this round (before any boost), and how many in the league had them.</p><div class="rows">' +
-        top.slice(0, 10).map(function (x, i) {
-          return '<div class="row"><div class="rk">' + (i + 1) + '</div><span class="teamdot" style="background:' + teamColor(x.a.team) + '"></span><div class="main"><div class="n">' + assetLabel(x.a, true) +
-            '</div><div class="t">owned by ' + (own[x.id] || 0) + "/" + list.length + '</div></div><div class="big">' + fmt(x.p) + "</div></div>";
+      h += '<section class="card"><h2>Who scored</h2><p class="sub">F1 Fantasy points this round (before any Boost) and how many in the league had them.</p><div class="alist">' +
+        top.slice(0, 10).map(function (id) {
+          return assetRow(id, "<b>" + fmt(pts[id]) + '</b><span class="k">pts</span>', "owned by " + (own[id] || 0) + "/" + list.length);
         }).join("") + "</div></section>";
     }
     openSheet(h);
@@ -535,8 +629,10 @@
     var M = S.model, o = M.ownership.find(function (x) { return x.id === id; });
     if (!o) return;
     var a = o.asset;
-    var h = "<h1>" + esc(a.full || a.name) + '</h1><p class="lede">' + (a.type === "C" ? "Constructor" : esc(a.team)) + " · " + money(o.price) +
-      (o.global != null ? " · in " + o.global + "% of all F1 Fantasy teams" : "") + "</p>";
+    var nm = splitName(a);
+    var h = '<div class="ahero" style="' + tc(teamColor(a.team)) + '">' + (a.type === "C" ? pic(id, "car", "hcar") : pic(id, "head", "hhead")) +
+      '<div class="ahero-t">' + (nm.first ? '<span class="fn">' + esc(nm.first) + "</span>" : "") + "<b>" + esc(nm.last) + "</b><small>" + (a.type === "C" ? "Constructor" : esc(a.team)) + " · " + money(o.price) + " " + signedMoney(priceMove(id)) + "</small></div></div>" +
+      '<p class="lede">' + (o.global != null ? "In " + o.global + "% of all F1 Fantasy teams" : "") + "</p>";
     h += '<section class="hero">' + tile("League owners", o.count + "/" + M.managers.length, fmt(o.pct) + "%") + tile("Season points", fmt(o.seasonPts), "rounds 1–" + M.N) +
       tile("Last round", fmt(o.lastPts), esc(roundName(M.N))) + tile("Season share", fmt(o.seasonPct) + "%", "of manager-rounds") + "</section>";
     h += '<section class="card"><h2>Owned by</h2><div class="rows">' + (o.owners.length ? o.owners.map(function (m) {
@@ -670,7 +766,10 @@
   setInterval(function () { if (!document.hidden) refresh(true); }, REFRESH_MS);
   setInterval(function () { if (S.model && !document.hidden) renderChrome(); }, 60 * 1000);
 
-  fetchData().then(function (d) { setData(d); route(); }).catch(function (e) {
+  // which pictures the photos workflow has mirrored; none yet = initials
+  var photosReady = fetch("photos/index.json", { cache: "no-cache" }).then(function (r) { return r.ok ? r.json() : {}; })
+    .catch(function () { return {}; }).then(function (p) { S.photos = p || {}; });
+  Promise.all([fetchData(), photosReady]).then(function (r) { setData(r[0]); route(); }).catch(function (e) {
     $("view").innerHTML = '<div class="empty">Couldn\'t load the league data (' + esc(e.message) + "). Pull to refresh or try again shortly.</div>";
     $("subline").textContent = "Offline";
   });

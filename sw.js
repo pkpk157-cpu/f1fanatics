@@ -8,11 +8,14 @@
    checked on every push: it changes when, and only when, the app does — not
    when the data updater publishes a new data.json. data.json is never cached
    here; app.js keeps its own last copy for offline. */
-const BUILD = "0f05a8a528f0";
+const BUILD = "fb2603b2564c";
 const CACHE = "f1f-" + BUILD;
+// Driver photos, kept across releases: they don't change with one.
+const PHOTOS = "f1fphotos";
 const ASSETS = [
   "./index.html", "./styles.css", "./config.js", "./compute.js", "./rules.js", "./app.js",
-  "./manifest.json", "./icon-192.png", "./favicon-64.png", "./logo.webp"
+  "./manifest.json", "./icon-192.png", "./favicon-64.png", "./logo.webp",
+  "./fonts/titillium-700.woff2", "./fonts/titillium-900.woff2"
 ];
 
 self.addEventListener("install", (e) => {
@@ -44,6 +47,13 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.endsWith("/data.json")) return;
+  if (/\/photos\/[^/]+\.webp$/.test(url.pathname)) {
+    e.respondWith(caches.open(PHOTOS).then((c) => c.match(req).then((hit) => hit || fetch(req).then((res) => {
+      if (res.ok) c.put(req, res.clone());
+      return res;
+    }))));
+    return;
+  }
   if (!SHELL.has(url.pathname)) return;
   const key = url.pathname.endsWith("/") ? INDEX : url.pathname;
   e.respondWith(

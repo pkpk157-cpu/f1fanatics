@@ -133,6 +133,9 @@ async function main() {
         name: p.PositionName === "CONSTRUCTOR" ? p.FUllName : (p.DisplayName || p.FUllName),
         full: p.FUllName,
         short: p.DriverTLA || (p.FUllName || "").slice(0, 3).toUpperCase(),
+        first: p.FirstName || "",
+        last: p.LastName || "",
+        ref: p.DriverReference || "",
         team: p.TeamName || p.FUllName,
         teamId: String(p.TeamId || id),
         active: String(p.IsActive) === "1"
@@ -140,6 +143,39 @@ async function main() {
     }
   }
   if (!Object.keys(prices).length) throw new Unavailable("the drivers feed came back empty");
+
+  // Team colours and image sources, from the image config F1 Fantasy's own
+  // site uses (feeds/cloudinary/config.json). Cosmetic: if it's unavailable,
+  // the last published values stay. scripts/fetch-photos.js mirrors the
+  // images into photos/ so the app never loads them from F1.
+  let teamColors = null;
+  try {
+    const img = await get(`${BASE}/cloudinary/config.json`);
+    const square = (img && img.players && img.players["stat-view"]) || {};
+    const base = img.cloudinaryBaseUrl || "https://media.formula1.com/image/upload";
+    const ver = img.cloudinaryEnvVersion || "v1";
+    const slug = (x) => String(x || "").toLowerCase().replace(/\s+/g, "");
+    teamColors = {};
+    for (const id of Object.keys(assets)) {
+      const a = assets[id], t = slug(a.team), y = CONFIG.season;
+      const c = /\/b_rgb:([0-9a-fA-F]{6})\//.exec(square[id] || "");
+      if (c) teamColors[a.team] = "#" + c[1].toLowerCase();
+      if (a.type === "D" && a.ref) {
+        const r = slug(a.ref);
+        const front = `common/f1/${y}/${t}/${r}/${y}${t}${r}front.png`;
+        // transparent head-and-shoulders, square, from the top of the portrait
+        a.img = { head: [`${base}/ar_1:1,c_crop,g_north,w_1000/c_scale,w_320/${ver}/${front}`, square[id]].filter(Boolean) };
+      } else if (a.type === "C") {
+        a.img = {
+          car: [`${base}/c_scale,w_720/${ver}/common/f1/${y}/${t}/${y}${t}carright.png`],
+          logo: [`${base}/c_scale,h_120/${ver}/common/f1/${y}/${t}/${y}${t}logowhitefr.png`]
+        };
+      }
+    }
+    for (const [team, col] of Object.entries(teamColors)) if (!col) delete teamColors[team];
+  } catch (e) {
+    console.log("image config unavailable (" + e.message + "); keeping the last team colours and images");
+  }
 
   const managers = board.map((e) => {
     const id = String(e.social_id);
@@ -172,6 +208,7 @@ async function main() {
     prices,
     assetPoints,
     ownershipGlobal,
+    teamColors: teamColors || {},
     managers
   };
   data.checks = F1F.verify(data);
@@ -184,6 +221,12 @@ async function main() {
   }
   if (live && live.league && live.league.id === LEAGUE && live.managers && live.managers.length > managers.length + 2) {
     throw new Unavailable("F1 returned " + managers.length + " managers, " + live.managers.length + " are already published — keeping those");
+  }
+
+  // Image config unavailable this run: carry the last good colours and photos.
+  if (!teamColors && live && live.teamColors) {
+    data.teamColors = live.teamColors;
+    for (const id of Object.keys(assets)) if (live.assets && live.assets[id] && live.assets[id].img) assets[id].img = live.assets[id].img;
   }
 
   // Only rewrite when the content changed: stamps aside, same data = no commit.

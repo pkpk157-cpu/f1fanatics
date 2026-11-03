@@ -1,0 +1,56 @@
+# Driver headshots, constructor cars and logos, mirrored into photos/.
+#
+# Its own workflow on purpose: the data updater is what the league depends
+# on, and nothing about pictures may slow it down or fail it. If this never
+# runs again, the app carries on and shows initials.
+name: Driver photos
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Fetch every picture again, not just missing ones"
+        type: boolean
+        default: false
+  schedule:
+    # once a day, so a new driver gets a picture within a day
+    - cron: "37 4 * * *"
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: photos
+  cancel-in-progress: false
+jobs:
+  photos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # outside the working tree: none of the image tooling belongs in the repo
+      - run: npm install --no-save --prefix /tmp/imgtools sharp
+      - name: Fetch photos
+        env:
+          NODE_PATH: /tmp/imgtools/node_modules
+        run: node scripts/fetch-photos.js ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }}
+      - name: Commit and redeploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A photos
+          if git diff --cached --quiet; then echo "No new photos."; exit 0; fi
+          git commit -q -m "Update driver photos"
+          for i in 1 2 3 4; do
+            if git pull -q --rebase origin "$GITHUB_REF_NAME" && git push -q origin "HEAD:$GITHUB_REF_NAME"; then
+              # a push made with this token starts no workflow, but a dispatch does
+              gh workflow run pages.yml --ref "$GITHUB_REF_NAME" || echo "::warning::could not start the Pages deploy"
+              exit 0
+            fi
+            sleep $((2 ** i))
+          done
+          echo "could not push photos" >&2
+          exit 1
