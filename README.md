@@ -8,8 +8,8 @@ Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
 
 - **League**: Standings (each row shows that manager's form over the last five
   races) · XP (the season split and everyone's XP)
-- **Races**: Result (the podium and the rest, the round's Dream team and who
-  scored; ‹ › through the season) · Race grid (tap a round to open its result)
+- **Races**: Races (every race of the season by name; tap a finished one for
+  its podium, Dream team and who scored, ‹ › through the season) · Race grid
 - **Your team** (middle): Season (four figures and every round) · Team ·
   Picks (who scored for you) · Rivals (either side, head to head)
 - **Trends**: Position · Gap to the leader

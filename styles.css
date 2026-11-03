@@ -819,3 +819,13 @@ main .board-h { padding-bottom: 14px; }
 .pod-name .pp { display: block; margin-top: 5px; font-family: var(--display); font-weight: 700; font-size: 11px; color: var(--pts-hi); }
 .pod-name .pp b { display: inline; font-size: 18px; font-weight: 900; }
 .pod.p1 .pod-name .pp { color: #fff; }
+
+/* race list */
+.rlist.races .rrow { min-height: 56px; }
+.rlist.races .rrow.todo { cursor: default; }
+.rlist.races .rrow.todo .rpos { background: var(--bar); color: var(--board-muted); }
+.rlist.races .rrow.todo .rname b { color: var(--board-muted); }
+.rlist.races .rrow.next .rpos { background: var(--bar); color: var(--red-hi); box-shadow: inset 3px 0 0 var(--red); }
+.rlist.races .rrow.next .rname b { color: var(--board-fg); }
+.rlist.races .rpts b { font-size: 17px; }
+.sheet .result { margin-top: 18px; }

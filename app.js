@@ -9,7 +9,7 @@
   // each tab is split into sub-tabs; only the chosen one is drawn
   var SUBS = {
     league: [["table", "Standings"], ["prizes", "XP"]],
-    races: [["result", "Result"], ["grid", "Race grid"]],
+    races: [["list", "Races"], ["grid", "Race grid"]],
     you: [["season", "Season"], ["team", "Team"], ["picks", "Picks"], ["rivals", "Rivals"]],
     trends: [["rank", "Position"], ["gap", "Gap"]],
     stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["moves", "Movement"], ["value", "Value"]],
@@ -332,10 +332,35 @@
     }).join("") + "</div></section>";
   }
 
+  // every race of the season; a finished one opens its result
+  function raceList() {
+    var M = S.model, h = '<section class="result"><div class="result-h"><div class="result-t"><span class="lime">' + esc(String(S.data.league.season)) +
+      '</span> <span class="sl">/</span> ' + (M.N + M.remaining) + " RACES</div></div><div class=\"rlist races\">";
+    (S.data.schedule || []).forEach(function (s) {
+      var done = s.round <= M.N, ri = done ? M.roundInfo[s.round - 1] : null;
+      var date = s.race ? when(s.race, { day: "numeric", month: "short" }) : "";
+      if (done) {
+        h += '<div class="rrow' + (ri.winners.some(isMe) ? " me" : "") + '" data-r="' + s.round + '"><div class="rpos">' + s.round + '</div><div class="rname"><b>' + esc(s.name) +
+          "</b><small>" + esc(date) + (s.sprint ? " · sprint" : "") + " · " + esc(ri.winners.map(function (m) { return m.name; }).join(" & ")) +
+          '</small></div><div class="rpts"><b>' + fmt(ri.high) + "</b>PTS</div></div>";
+      } else {
+        var next = M.next && M.next.round === s.round;
+        h += '<div class="rrow todo' + (next ? " next" : "") + '"><div class="rpos">' + s.round + '</div><div class="rname"><b>' + esc(s.name) +
+          "</b><small>" + esc(date) + (s.sprint ? " · sprint" : "") + (next && s.lock && Date.parse(s.lock) > Date.now() ? " · locks in " + until(s.lock) : "") +
+          '</small></div><div class="rpts">' + (next ? "<b>NEXT</b>" : "") + "</div></div>";
+      }
+    });
+    return h + "</div></section>";
+  }
+  function roundSheet(r) {
+    if (r < 1 || r > S.model.N) return;
+    S.podR = r;
+    openSheet(podiumHtml(r, true) + dreamTeam(r) + whoScored(r));
+  }
+
   function viewRaces() {
     var M = S.model, h = "";
-    if (S.podR == null || S.podR > M.N || S.podR < 1) S.podR = M.N;
-    h += SUB("result") + podiumHtml(S.podR, true) + dreamTeam(S.podR) + whoScored(S.podR);
+    h += SUB("list") + raceList();
     h += SUB("grid");
     h += '<section class="card"><div class="tblwrap"><table class="heat"><thead><tr><th class="l"></th>';
     M.roundInfo.forEach(function (ri) { h += '<th class="rd click" data-r="' + ri.round + '" title="' + esc(ri.name) + '">' + esc(abbr(ri.short)) + "<br>" + ri.round + "</th>"; });
@@ -694,12 +719,6 @@
       SUB("rivals") + P.rivals;
   }
 
-  function showRound(r) {
-    S.podR = r;
-    closeSheet();
-    if (location.hash === "#races/result") { render(); window.scrollTo(0, 0); } else location.hash = "races/result";
-  }
-
   function assetSheet(id) {
     var M = S.model, o = M.ownership.find(function (x) { return x.id === id; });
     if (!o) return;
@@ -886,7 +905,7 @@
     if (!t) return;
     if (t.hasAttribute("data-round-nav")) {
       var nr = Number(t.getAttribute("data-round-nav"));
-      if (nr >= 1 && nr <= S.model.N) { S.podR = nr; var y = window.scrollY; render(); window.scrollTo(0, y); }
+      if (nr >= 1 && nr <= S.model.N) roundSheet(nr);
       return;
     }
     if (t.tagName === "A" && t.hasAttribute("data-r")) e.preventDefault();
@@ -909,7 +928,7 @@
       return;
     }
     if (t.hasAttribute("data-m")) managerSheet(t.getAttribute("data-m"));
-    else if (t.hasAttribute("data-r")) showRound(Number(t.getAttribute("data-r")));
+    else if (t.hasAttribute("data-r")) roundSheet(Number(t.getAttribute("data-r")));
     else if (t.hasAttribute("data-a")) assetSheet(t.getAttribute("data-a"));
   });
   document.addEventListener("change", function (e) {
