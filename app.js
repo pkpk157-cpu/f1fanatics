@@ -258,53 +258,57 @@
   function lastFirst(m) { var p = m.name.split(" "); return { first: p.length > 1 ? p.slice(0, -1).join(" ") : "", last: p[p.length - 1] }; }
 
   /* round result, like F1's race-result graphic: podium 2-1-3, then the rest */
+  /* the podium board (round results and XP): 2-1-3, big numerals, name below, then 4th onwards */
+  function podiumBoard(o) {
+    var card = function (e, place) {
+      if (!e) return "";
+      var n = lastFirst(e.m);
+      return '<div class="pod p' + place + " " + medal(e.rank) + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '">' +
+        '<div class="pod-img"><span class="pod-num">' + e.rank + "</span></div>" +
+        '<div class="pod-name">' + (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + '</b><span class="pt">' + esc(e.m.team) + "</span>" +
+        '<span class="pp"><b>' + e.value + "</b> " + esc(o.unit) + "</span></div></div>";
+    };
+    var top = o.entries.slice(0, 3), rest = o.entries.slice(3);
+    var h = '<section class="result"><div class="result-h">' + (o.prev != null ? '<button class="rnav" data-round-nav="' + o.prev + '"' + (o.prevOff ? " disabled" : "") + ' aria-label="Previous round">‹</button>' : "") +
+      '<div class="result-t">' + o.title + "</div>" +
+      (o.next != null ? '<button class="rnav" data-round-nav="' + o.next + '"' + (o.nextOff ? " disabled" : "") + ' aria-label="Next round">›</button>' : "") + "</div>";
+    h += '<div class="podium">' + card(top[1], 2) + card(top[0], 1) + card(top[2], 3) + "</div>";
+    if (rest.length) h += '<div class="rlist">' + rest.map(function (e) {
+      return '<div class="rrow' + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '"><div class="rpos">' + e.rank + '</div><div class="rname"><b>' + esc(e.m.name) +
+        "</b><small>" + e.sub + '</small></div><div class="rpts"><b>' + e.value + "</b>" + esc(o.unit) + "</div></div>";
+    }).join("") + "</div>";
+    return h + "</section>";
+  }
+
   function podiumHtml(r, nav) {
     var M = S.model, ri = M.roundInfo[r - 1];
     if (!ri) return "";
     var list = M.managers.filter(function (m) { return m.pts[r] != null; }).sort(function (a, b) { return a.roundRank[r] - b.roundRank[r] || a.name.localeCompare(b.name); });
-    var top = list.slice(0, 3), rest = list.slice(3);
-    var card = function (m, place) {
-      if (!m) return "";
-      var n = lastFirst(m);
-      return '<div class="pod p' + place + " " + medal(m.roundRank[r]) + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' +
-        '<div class="pod-img"><span class="pod-num">' + m.roundRank[r] + "</span>" +
-        '<span class="pod-pts"><b>' + fmt(m.pts[r]) + "</b>PTS</span></div>" +
-        '<div class="pod-name">' + (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + '</b><span class="pt">' + esc(m.team) + "</span></div></div>";
-    };
-    var h = '<section class="result">';
-    h += '<div class="result-h">' + (nav ? '<button class="rnav" data-round-nav="' + (r - 1) + '"' + (r <= 1 ? " disabled" : "") + ' aria-label="Previous round">‹</button>' : "") +
-      '<div class="result-t"><span class="lime">ROUND ' + r + '</span> <span class="sl">/</span> ' + esc(ri.short.toUpperCase()) + "</div>" +
-      (nav ? '<button class="rnav" data-round-nav="' + (r + 1) + '"' + (r >= M.N ? " disabled" : "") + ' aria-label="Next round">›</button>' : "") + "</div>";
-    h += '<div class="podium">' + card(top[1], 2) + card(top[0], 1) + card(top[2], 3) + "</div>";
-    if (rest.length) {
-      h += '<div class="rlist">' + rest.map(function (m) {
+    return podiumBoard({
+      title: '<span class="lime">ROUND ' + r + '</span> <span class="sl">/</span> ' + esc(ri.short.toUpperCase()),
+      prev: nav ? r - 1 : null, prevOff: r <= 1, next: nav ? r + 1 : null, nextOff: r >= M.N, unit: "PTS",
+      entries: list.map(function (m) {
         var after = m.rankAt[r], before = r > 1 ? m.rankAt[r - 1] : null, mv = after != null && before != null ? before - after : null;
-        return '<div class="rrow' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rpos">' + m.roundRank[r] + '</div><div class="rname"><b>' + esc(m.name) +
-          "</b><small>" + esc(m.team) + (after ? " · " + ordinal(after) + " overall" : "") + (mv ? ' <span class="' + (mv > 0 ? "up" : "down") + '">' + (mv > 0 ? "▲" : "▼") + Math.abs(mv) + "</span>" : "") +
-          '</small></div><div class="rpts"><b>' + fmt(m.pts[r]) + "</b>PTS</div></div>";
-      }).join("") + "</div>";
-    }
-    h += "</section>";
-    return h;
+        return { m: m, rank: m.roundRank[r], value: fmt(m.pts[r]),
+          sub: esc(m.team) + (after ? " · " + ordinal(after) + " overall" : "") + (mv ? ' <span class="' + (mv > 0 ? "up" : "down") + '">' + (mv > 0 ? "▲" : "▼") + Math.abs(mv) + "</span>" : "") };
+      })
+    });
   }
 
   function viewPrizes() {
     var P = S.prizes, M = S.model;
     if (!P) return "";
-    var medals = ["1st", "2nd", "3rd"], h = SUB("prizes");
-    h += '<div class="prize3">' + P.seasonPrizes.map(function (v, i) {
-      return '<div class="pz pz' + (i + 1) + '"><span class="pzn">' + medals[i] + "</span><b>" + cur(v, true) + "</b><small>XP</small></div>";
-    }).join("") + "</div>";
+    // ordered by XP earned so far (race XP + the season XP if it ended now); ties share a place
     var rows = M.managers.slice().sort(function (a, b) { return P.by[b.id].total - P.by[a.id].total || a.rank - b.rank; });
-    h += '<section class="card"><div class="tblwrap"><table class="wintbl"><thead><tr><th class="l">Manager</th><th>Race</th><th>Season</th><th>Net</th></tr></thead><tbody>';
-    rows.forEach(function (m) {
-      var x = P.by[m.id];
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) +
-        "<td>" + cur(x.race, true) + "<small>" + x.raceWins.length + " win" + (x.raceWins.length === 1 ? "" : "s") + "</small></td>" +
-        '<td class="t' + medal(m.rank) + '">' + (x.projected ? cur(x.projected, true) : "–") + "</td>" +
-        '<td class="num ' + (x.net >= 0 ? "up" : "down") + '">' + (x.net >= 0 ? "+" : "") + cur(x.net, true) + "</td></tr>";
+    var rk = F1F.rankBy(rows, function (m) { return Math.round(P.by[m.id].total); });
+    return SUB("prizes") + podiumBoard({
+      title: '<span class="lime">XP</span> <span class="sl">/</span> ' + esc(String(S.data.league.season)), unit: "XP",
+      entries: rows.map(function (m) {
+        var x = P.by[m.id];
+        return { m: m, rank: rk.get(m), value: cur(x.total, true),
+          sub: cur(x.race, true) + " race" + (x.projected ? " · " + cur(x.projected, true) + " season" : "") + ' · <span class="' + (x.net >= 0 ? "up" : "down") + '">' + (x.net >= 0 ? "+" : "") + cur(x.net, true) + " net</span>" };
+      })
     });
-    return h + "</tbody></table></div></section>";
   }
 
   function dreamTeam(r) {

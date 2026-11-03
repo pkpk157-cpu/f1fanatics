@@ -602,9 +602,6 @@ tr:nth-child(3) .pos { color: #e0995a; }
 .pod.p3 .pod-img { border-top-color: #c98a4b; }
 .pod-num { position: absolute; left: 8px; top: 4px; font-family: var(--display); font-weight: 900; font-size: 64px; line-height: 1; }
 .pod.p1 .pod-num { font-size: 84px; }
-.pod-pts { position: absolute; right: 0; bottom: 0; background: var(--pts-box); color: var(--lime); text-align: center; padding: 5px 8px 4px; font-family: var(--display); font-weight: 700; font-size: 9.5px; line-height: 1; }
-.pod.p1 .pod-pts { background: rgba(0,0,0,.55); }
-.pod-pts b { display: block; font-weight: 900; font-size: 19px; }
 .pod-name {
   background: var(--bar-alt); color: var(--bar-fg); text-align: center; padding: 7px 4px;
   font-family: var(--display); text-transform: uppercase; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -811,3 +808,14 @@ main .board-h { padding-bottom: 14px; }
 #splash.done { opacity: 0; visibility: hidden; pointer-events: none; }
 @keyframes splash-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { #splash img, #splash p { animation: none; } }
+
+/* podium: the numeral fills the block, the name sits below */
+.pod-img { display: flex; align-items: center; justify-content: center; container-type: inline-size; aspect-ratio: 4 / 4.4; }
+.pod.p1 .pod-img { aspect-ratio: 4 / 5; }
+.pod-num { position: static; font-size: 118cqw; line-height: .78; letter-spacing: -0.04em; margin-top: 4%; }
+.pod.p1 .pod-num { font-size: 132cqw; }
+.pod-name { white-space: normal; padding: 8px 4px 9px; }
+.pod-name b, .pod-name .fn, .pod-name .pt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pod-name .pp { display: block; margin-top: 5px; font-family: var(--display); font-weight: 700; font-size: 11px; color: var(--pts-hi); }
+.pod-name .pp b { display: inline; font-size: 18px; font-weight: 900; }
+.pod.p1 .pod-name .pp { color: #fff; }
