@@ -85,7 +85,7 @@
 
   /* F1-graphic standings row: red position, team-colour bar, red points block */
   function standRow(o) {
-    return '<div class="srow' + (o.me ? " me" : "") + (o.lead ? " lead" : "") + '"' + (o.attr || "") + ' style="' + tc(o.color) + '">' +
+    return '<div class="srow' + (o.me ? " me" : "") + (o.lead ? " lead" : "") + (o.color ? "" : " plain") + '"' + (o.attr || "") + (o.color ? ' style="' + tc(o.color) + '"' : "") + ">" +
       '<div class="spos">' + esc(o.pos) + "</div>" +
       '<div class="sbar">' + (o.face || "") + '<div class="snm"><div class="sname">' + o.name + "</div>" + (o.sub ? '<div class="ssub">' + o.sub + "</div>" : "") + "</div></div>" +
       '<div class="spts"><span class="num">' + o.pts + "</span>" + (o.ptsSub ? "<small>" + o.ptsSub + "</small>" : "") + "</div></div>";
@@ -226,18 +226,15 @@
 
     h += '<section class="board"><div class="board-h"><div class="board-t">League standings</div><div class="board-s">Points after the ' + esc(d0(lastInfo)) + "</div></div>";
     M.managers.forEach(function (m) {
-      var star = m.star ? assetOf(m.star.id) : null;
       var mv = m.move > 0 ? '<span class="up">▲' + m.move + "</span>" : m.move < 0 ? '<span class="down">▼' + -m.move + "</span>" : "";
       h += standRow({
         pos: m.rank, me: isMe(m), lead: m === M.leader, attr: ' data-m="' + esc(m.id) + '"',
-        color: star ? teamColor(star.team) : "#3a3a40",
-        face: m.star ? pic(m.star.id, "head", "sface") : "",
         name: managerName(m),
         sub: esc(m.team) + (lastInfo ? " · " + esc(abbr(lastInfo.short)) + " " + fmt(m.last) : "") + (mv ? " " + mv : ""),
         pts: fmt(m.total), ptsSub: m.gapLeader ? "−" + fmt(m.gapLeader) : ""
       });
     });
-    h += '<p class="board-note">Each row wears the team colours of that manager\'s top-scoring driver in ' + esc(lastInfo ? lastInfo.name : "the last round") + ". ▲▼ = places moved. Tap a manager for their season.</p></section>";
+    h += '<p class="board-note">▲▼ = places moved in ' + esc(lastInfo ? lastInfo.name : "the last round") + ". Tap a manager for their season.</p></section>";
 
     // quick form glance
     h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds, newest on the right. Purple = won the round, green = top third, red = bottom third.</p><div class="rows">';
@@ -252,12 +249,6 @@
   function d0(ri) { return ri ? S.data.league.season + " " + ri.name : "round " + S.model.N; }
   function tile(k, v, d) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="d">' + (d || "") + "</div></div>"; }
 
-  // a manager's top-scoring driver in a round: their face and colours for it
-  function starOf(m, r) {
-    var pts = (S.data.assetPoints || {})[r] || {}, best = null;
-    (m.team_[r] || []).forEach(function (id) { var a = assetOf(id); if (a && a.type === "D" && pts[id] != null && (best == null || pts[id] > pts[best])) best = id; });
-    return best;
-  }
   function lastFirst(m) { var p = m.name.split(" "); return { first: p.length > 1 ? p.slice(0, -1).join(" ") : "", last: p[p.length - 1] }; }
 
   /* round result, like F1's race-result graphic: podium 2-1-3, then the rest */
@@ -268,11 +259,11 @@
     var top = list.slice(0, 3), rest = list.slice(3);
     var card = function (m, place) {
       if (!m) return "";
-      var sid = starOf(m, r), a = sid ? assetOf(sid) : null, col = a ? teamColor(a.team) : "#3a3a40", n = lastFirst(m);
-      return '<div class="pod p' + place + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '" style="' + tc(col) + '">' +
-        '<div class="pod-img"><span class="pod-num">' + m.roundRank[r] + "</span>" + (sid ? pic(sid, "head", "pod-face") : "") +
+      var n = lastFirst(m);
+      return '<div class="pod p' + place + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' +
+        '<div class="pod-img"><span class="pod-num">' + m.roundRank[r] + "</span>" +
         '<span class="pod-pts"><b>' + fmt(m.pts[r]) + "</b>PTS</span></div>" +
-        '<div class="pod-name">' + (place === 1 ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b></div></div>";
+        '<div class="pod-name">' + (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + '</b><span class="pt">' + esc(m.team) + "</span></div></div>";
     };
     var h = '<section class="result">';
     h += '<div class="result-h">' + (nav ? '<button class="rnav" data-round-nav="' + (r - 1) + '"' + (r <= 1 ? " disabled" : "") + ' aria-label="Previous round">‹</button>' : "") +
@@ -322,14 +313,8 @@
 
     h += '<section class="board"><div class="board-h"><div class="board-t">Round winners</div><div class="board-s">Top score in the league each round · tap for the full result</div></div>';
     M.roundInfo.slice().reverse().forEach(function (ri) {
-      var w = ri.winners[0];
-      // the winning team's best driver that round, for the colours and the face
-      var best = null, pts = (S.data.assetPoints || {})[ri.round] || {};
-      if (w) (w.team_[ri.round] || []).forEach(function (id) { var a = assetOf(id); if (a && a.type === "D" && pts[id] != null && (!best || pts[id] > pts[best])) best = id; });
       h += standRow({
         pos: ri.round, attr: ' data-r="' + ri.round + '"', me: ri.winners.some(isMe),
-        color: best ? teamColor(assetOf(best).team) : "#3a3a40",
-        face: best ? pic(best, "head", "sface") : "",
         name: "<b>" + esc(ri.short) + "</b>",
         sub: "🏆 " + esc(ri.winners.map(function (m) { return m.name; }).join(" & ")) + " · avg " + fmt(ri.avg) + (ri.sprint ? " · sprint" : ""),
         pts: fmt(ri.high)

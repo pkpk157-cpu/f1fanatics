@@ -264,14 +264,6 @@
       });
       m.totalTransfers = tot;
 
-      // their star of the latest round: the driver in their team who scored most
-      m.star = null;
-      var lastR = played.length ? played[played.length - 1] : null;
-      var lp = lastR != null ? (data.assetPoints || {})[lastR] : null;
-      if (lp) (m.team_[lastR] || []).forEach(function (id) {
-        var a = (data.assets || {})[id];
-        if (a && a.type === "D" && lp[id] != null && (!m.star || lp[id] > m.star.pts)) m.star = { id: id, pts: lp[id], round: lastR };
-      });
     });
 
     // Dream team: the best five drivers and two constructors of each round as

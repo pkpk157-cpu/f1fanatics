@@ -31,8 +31,9 @@ the F1 Fantasy 2026 game rules (scoring, chips, transfers, prices, in
 
 Standings and round winners are drawn like F1's broadcast standings graphic:
 red position numbers, a bar in team colours, and the points in a red block
-(gold for the leader). Each manager's bar uses the team colours and face of
-their top-scoring driver in the latest round. Teams are shown as cards in the
+(gold for the leader). Round results are a podium (2–1–3) plus the rest of
+the field, like F1's race-result graphic. Pictures are used for drivers and
+constructors only, never for managers. All of it has light and dark versions. Teams are shown as cards in the
 style of F1 Fantasy's team builder and Team of the Week. Each round's page
 has a **Dream team**: the best five drivers and two constructors of that
 round, with the top driver boosted 2× and no cost cap.
