@@ -768,3 +768,9 @@ main { padding-top: 8px; }
 .dr-foot { margin-top: auto; padding-top: 18px; border-top: 1px solid var(--line); text-align: center; }
 .dr-foot p { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0 0 12px; }
 .dr-foot img { border-radius: 20px; box-shadow: 0 8px 26px rgba(225, 6, 0, .3); }
+
+/* Tabs carry no explanatory text: no card descriptions, legends or footnotes.
+   (Sheets opened from a tab keep theirs.) */
+main .sub:not(.keep), main .board-note, main .legend { display: none; }
+main .card h2 { margin-bottom: 12px; }
+main .board-h { padding-bottom: 14px; }

@@ -243,7 +243,7 @@
         pts: fmt(m.total), ptsSub: m.gapLeader ? "−" + fmt(m.gapLeader) : ""
       });
     });
-    h += '<p class="board-note">Form: finish in each of the last five rounds, newest on the right. Gold, silver, bronze = 1st, 2nd, 3rd in the round; green = rest of the top third; red = bottom third. ▲▼ = places moved in ' + esc(lastInfo ? lastInfo.name : "the last round") + ". Tap a manager for their season.</p></section>";
+    h += "</section>";
 
     return h;
   }
@@ -303,7 +303,7 @@
     rows.forEach(function (m) {
       var x = P.by[m.id], shared = x.raceWins.some(function (w) { return w.shared; });
       h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) +
-        "<td>" + cur(x.race, true) + "<small>" + x.raceWins.length + " win" + (x.raceWins.length === 1 ? "" : "s") + (shared ? "*" : "") + "</small></td>" +
+        "<td>" + cur(x.race, true) + "<small>" + x.raceWins.length + " win" + (x.raceWins.length === 1 ? "" : "s") + "" + "</small></td>" +
         '<td class="' + "t" + medal(m.rank) + '">' + (x.projected ? cur(x.projected, true) : "–") + "</td>" +
         '<td class="num ' + (x.net >= 0 ? "up" : "down") + '">' + (x.net >= 0 ? "+" : "") + cur(x.net, true) + "<small>earned " + cur(x.total, true) + "</small></td></tr>";
     });
@@ -723,7 +723,7 @@
   function viewYou() {
     var m = S.me && byId(S.me);
     if (!m) {
-      return '<section class="card youpick"><h2>Which team is yours?</h2><p class="sub">Pick it once and this tab becomes your season: your team, every round, the picks that scored for you, and your rivals. Saved on this device only.</p>' +
+      return '<section class="card youpick"><h2>Which team is yours?</h2><p class="sub keep">Pick it once and this tab becomes your season: your team, every round, the picks that scored for you, and your rivals. Saved on this device only.</p>' +
         teamSelect() + "</section>";
     }
     var P = managerParts(m), M = S.model;
