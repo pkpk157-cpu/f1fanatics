@@ -6,8 +6,7 @@
 <title>F1 Fanatics — League Tracker</title>
 <meta name="description" content="Standings and stats for the F1 Fanatics F1 Fantasy league: race-by-race scores, rank movement, form, team value and ownership." />
 <link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#f4f4f6" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#111216" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#050506" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="F1 Fanatics" />
@@ -15,50 +14,39 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="icon" href="favicon-64.png" type="image/png" sizes="64x64" />
 <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192" />
-<script>
-  /* the saved theme, before first paint */
-  (function () {
-    try {
-      var t = localStorage.getItem("f1f.theme");
-      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
-    } catch (e) {}
-  })();
-</script>
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <button class="iconbtn" id="backBtn" aria-label="Back" hidden>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
-    </button>
-    <div class="brand">
-      <img src="icon-192.png" alt="" width="34" height="34" />
-      <div>
-        <div class="brand-name" id="leagueName">F1 Fanatics</div>
-        <div class="brand-sub" id="subline">Loading…</div>
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="icon-192.png" alt="" width="36" height="36" />
+        <div style="min-width:0">
+          <div class="brand-name" id="leagueName">F1 Fanatics</div>
+          <div class="brand-sub" id="subline">Loading…</div>
+        </div>
       </div>
+      <button class="iconbtn" id="meBtn" aria-label="Choose your team" title="Choose your team">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
+      </button>
+      <button class="iconbtn" id="infoBtn" aria-label="About the data" title="About the data">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
+      </button>
     </div>
-    <button class="iconbtn" id="meBtn" aria-label="Choose your team" title="Choose your team">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
-    </button>
-    <button class="iconbtn" id="themeBtn" aria-label="Switch light or dark" title="Light / dark">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" /></svg>
-    </button>
-    <button class="iconbtn" id="infoBtn" aria-label="About the data" title="About the data">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
-    </button>
   </header>
 
-  <nav class="tabs" id="tabs" aria-label="Sections">
-    <a href="#standings" data-tab="standings">Standings</a>
-    <a href="#races" data-tab="races">Races</a>
-    <a href="#trends" data-tab="trends">Trends</a>
-    <a href="#stats" data-tab="stats">Stats</a>
-    <a href="#picks" data-tab="picks">Picks</a>
-  </nav>
-
+  <h1 class="pagetitle" id="pageTitle"></h1>
   <div id="banner" class="banner" hidden></div>
   <main id="view" aria-live="polite"><div class="loading">Loading the league…</div></main>
+
+
+  <nav class="tabbar" id="tabs" aria-label="Sections">
+    <a href="#standings" data-tab="standings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" /></svg>Standings</a>
+    <a href="#races" data-tab="races"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4M5 4h13l-2 4 2 4H5" /></svg>Races</a>
+    <a href="#trends" data-tab="trends"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3 8-9M15 5h5v5" /></svg>Trends</a>
+    <a href="#stats" data-tab="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V12M10 20V6M15 20v-9M20 20V9M3 20h18" /></svg>Stats</a>
+    <a href="#picks" data-tab="picks"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3v9l6.4 6.4" /></svg>Picks</a>
+  </nav>
 
   <dialog id="sheet" class="sheet">
     <div class="sheet-inner">

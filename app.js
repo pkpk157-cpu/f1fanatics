@@ -54,17 +54,18 @@
     return a.type === "C" ? esc(a.name) : esc(a.name) + (withTeam ? ' <span class="muted">· ' + esc(a.team) + "</span>" : "");
   }
 
-  // shade for a round rank: green for the top of the round, red for the bottom
+  // shade for a round rank: brighter red = higher in the round
   function heat(rank, n) {
     if (rank == null || n < 2) return "";
     var t = (n - rank) / (n - 1);
-    var a = Math.abs(t - 0.5) * 2 * 0.5 + 0.06;
-    return "background: rgba(var(" + (t >= 0.5 ? "--heat-hi" : "--heat-lo") + "), " + a.toFixed(2) + ")";
+    var a = 0.06 + t * t * 0.7;
+    return "background: rgba(var(--heat), " + a.toFixed(2) + ")" + (t > 0.75 ? "; color: #fff" : "");
   }
   function formChip(rank, n) {
-    if (rank == null) return '<span style="background:var(--surface-2);color:var(--faint)">–</span>';
+    if (rank == null) return '<span style="background:rgba(255,255,255,.08);color:var(--faint)">–</span>';
     var t = n > 1 ? (n - rank) / (n - 1) : 1;
-    var col = t >= 0.67 ? "var(--up)" : t <= 0.33 ? "var(--down)" : "var(--faint)";
+    // timing-screen colours: purple = won the round, green = top third, red = bottom third
+    var col = rank === 1 ? "var(--purple)" : t >= 0.67 ? "#1f9d47" : t <= 0.33 ? "#d6302a" : "rgba(255,255,255,.18)";
     return '<span style="background:' + col + '" title="' + ordinal(rank) + ' in the round">' + rank + "</span>";
   }
   function moveCell(mv) {
@@ -112,7 +113,14 @@
     $("subline").textContent = d.league.season + " · Round " + M.N + " of " + (M.N + M.remaining) +
       " · updated " + ago(d.generatedAt);
     $("meBtn").classList.toggle("on", !!S.me);
-    document.querySelectorAll("#tabs a").forEach(function (a) { a.classList.toggle("active", a.dataset.tab === S.tab); });
+    document.querySelectorAll("#tabs a").forEach(function (a) {
+      var on = a.dataset.tab === S.tab;
+      a.classList.toggle("active", on);
+      if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+    var T = { standings: ["Standings", "Overall league table"], races: ["Races", "Every round, every manager"], trends: ["Trends", "How the season has moved"],
+      stats: ["Stats", "Records, form and consistency"], picks: ["Picks", "Who the league is backing"] }[S.tab];
+    $("pageTitle").innerHTML = esc(T[0]) + "<small>" + esc(T[1]) + "</small>";
     var msgs = [];
     if (d._offline) msgs.push("Offline — showing the last data this phone saw.");
     if (M.sync.state === "standings-behind") msgs.push("Round " + M.N + " scores are in; F1's standings haven't caught up yet, so totals here include them already.");
@@ -154,7 +162,7 @@
     h += "</tbody></table></div></section>";
 
     // quick form glance
-    h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds (1 = top score of the round), newest on the right.</p><div class="rows">';
+    h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds, newest on the right. Purple = won the round, green = top third, red = bottom third.</p><div class="rows">';
     M.managers.slice().sort(function (a, b) { return b.form5 - a.form5; }).forEach(function (m, i) {
       h += '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + (i + 1) + '</div><div class="main"><div class="n">' + esc(m.name) +
         '</div><div class="t">last 5 avg ' + fmt(m.form5) + " (" + signed(m.formVsAvg) + " vs season)" + '</div></div><div class="form">' +
@@ -167,7 +175,7 @@
 
   function viewRaces() {
     var M = S.model, h = "";
-    h += '<section class="card"><h2>Race by race</h2><p class="sub">Points each round. Shaded by finishing position within the round; gold outline = round winner.</p>';
+    h += '<section class="card"><h2>Race by race</h2><p class="sub">Points each round. The brighter the red, the higher they finished in that round; gold outline = round winner.</p>';
     h += '<div class="tblwrap"><table class="heat"><thead><tr><th class="l">Manager</th>';
     M.roundInfo.forEach(function (ri) { h += '<th class="rd" title="' + esc(ri.name) + '">' + esc(abbr(ri.short)) + "<br>" + ri.round + "</th>"; });
     h += '<th>Total</th></tr></thead><tbody>';
@@ -184,7 +192,7 @@
     h += '<tr><td class="l muted">League avg</td>';
     M.roundInfo.forEach(function (ri) { h += '<td class="muted">' + fmt(ri.avg) + "</td>"; });
     h += "<td></td></tr></tbody></table></div>";
-    h += '<div class="legend">Top of the round <span class="ramp" style="background:linear-gradient(90deg, rgba(var(--heat-hi),.56), rgba(var(--heat-hi),.06), rgba(var(--heat-lo),.06), rgba(var(--heat-lo),.56))"></span> bottom</div>';
+    h += '<div class="legend">Top of the round <span class="ramp" style="background:linear-gradient(90deg, rgba(var(--heat),.76), rgba(var(--heat),.06))"></span> bottom</div>';
     if (M.managers.some(function (m) { return m.preJoin; })) {
       h += '<p class="sub" style="margin-top:8px">· = not in the league yet. ' + M.managers.filter(function (m) { return m.preJoin; }).map(function (m) {
         return esc(m.name) + " joined from round " + m.joinRound + "; their " + fmt(m.preJoin) + " points before that count in the total";
@@ -570,8 +578,11 @@
   function route() {
     var hsh = (location.hash || "").replace(/^#/, "");
     var parts = hsh.split("/");
-    S.tab = TABS.indexOf(parts[0]) >= 0 ? parts[0] : "standings";
+    var tab = TABS.indexOf(parts[0]) >= 0 ? parts[0] : "standings";
+    var moved = tab !== S.tab;
+    S.tab = tab;
     render();
+    if (moved) window.scrollTo(0, 0);
   }
   function render() {
     if (!S.model) return;
@@ -609,13 +620,6 @@
   $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) closeSheet(); });
   $("meBtn").addEventListener("click", function () { if (S.model) meSheet(); });
   $("infoBtn").addEventListener("click", function () { if (S.model) infoSheet(); });
-  $("themeBtn").addEventListener("click", function () {
-    var cur = document.documentElement.getAttribute("data-theme") ||
-      (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    var next = cur === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    try { localStorage.setItem("f1f.theme", next); } catch (e) {}
-  });
   window.addEventListener("hashchange", route);
   var rt;
   window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(function () { if (S.tab === "trends") hydrateCharts($("view")); }, 150); });
