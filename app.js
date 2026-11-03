@@ -59,13 +59,13 @@
     if (rank == null || n < 2) return "";
     var t = (n - rank) / (n - 1);
     var a = 0.06 + t * t * 0.7;
-    return "background: rgba(var(--heat), " + a.toFixed(2) + ")" + (t > 0.75 ? "; color: #fff" : "");
+    return "background: rgba(var(--heat), " + a.toFixed(2) + ")" + (t > 0.8 ? "; color: #fff" : "");
   }
   function formChip(rank, n) {
-    if (rank == null) return '<span style="background:rgba(255,255,255,.08);color:var(--faint)">–</span>';
+    if (rank == null) return '<span style="background:var(--fill);color:var(--faint)">–</span>';
     var t = n > 1 ? (n - rank) / (n - 1) : 1;
     // timing-screen colours: purple = won the round, green = top third, red = bottom third
-    var col = rank === 1 ? "var(--purple)" : t >= 0.67 ? "#1f9d47" : t <= 0.33 ? "#d6302a" : "rgba(255,255,255,.18)";
+    var col = rank === 1 ? "var(--purple)" : t >= 0.67 ? "#1f9d47" : t <= 0.33 ? "#d6302a" : "var(--chip-mid)";
     return '<span style="background:' + col + '" title="' + ordinal(rank) + ' in the round">' + rank + "</span>";
   }
   function moveCell(mv) {
@@ -112,7 +112,6 @@
     $("leagueName").textContent = (d.league && d.league.name) || CONFIG.leagueName;
     $("subline").textContent = d.league.season + " · Round " + M.N + " of " + (M.N + M.remaining) +
       " · updated " + ago(d.generatedAt);
-    $("meBtn").classList.toggle("on", !!S.me);
     document.querySelectorAll("#tabs a").forEach(function (a) {
       var on = a.dataset.tab === S.tab;
       a.classList.toggle("active", on);
@@ -546,12 +545,48 @@
     openSheet(h);
   }
 
-  function meSheet() {
-    var h = '<h1>Which team is yours?</h1><p class="lede">Highlights you in every table and chart. Saved on this device only.</p><div class="picklist">' +
-      S.model.managers.map(function (m) {
-        return '<button class="' + (isMe(m) ? "on" : "") + '" data-me="' + esc(m.id) + '"><b>' + esc(m.name) + '</b><br><span class="muted small">' + esc(m.team) + "</span></button>";
-      }).join("") + '<button data-me="">Nobody — just browsing</button></div>';
+  /* ---------------- settings ---------------- */
+  function themeNow() { return document.documentElement.getAttribute("data-theme") || "dark"; }
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    save("theme", t);
+    var light = t === "light" || (t === "system" && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", light ? "#f2f2f7" : "#050506");
+    if (S.model) render();
+  }
+  function settingsSheet() {
+    var M = S.model, R = window.F1F_RULES, t = themeNow();
+    var h = '<h1>Settings</h1><p class="lede">' + esc((S.data.league && S.data.league.name) || CONFIG.leagueName) + " · league " + esc(S.data.league.id) + "</p>";
+
+    h += '<div class="group-h">Your team</div><div class="group card" style="padding:14px">' +
+      '<select class="select" id="meSelect" aria-label="Select your team"><option value="">Select your team…</option>' +
+      M.managers.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (m) {
+        return '<option value="' + esc(m.id) + '"' + (isMe(m) ? " selected" : "") + ">" + esc(m.name) + " — " + esc(m.team) + "</option>";
+      }).join("") + '</select><p class="sub" style="margin:8px 2px 0">You\'re highlighted in every table and chart. Saved on this device only.</p></div>';
+
+    h += '<div class="group-h">Appearance</div><div class="group card" style="padding:14px"><div class="seg" role="radiogroup" aria-label="Theme">' +
+      [["dark", "Dark"], ["light", "Light"], ["system", "Auto"]].map(function (o) {
+        return '<button role="radio" aria-checked="' + (t === o[0]) + '" class="' + (t === o[0] ? "on" : "") + '" data-theme-set="' + o[0] + '">' + o[1] + "</button>";
+      }).join("") + '</div><p class="sub" style="margin:8px 2px 0">Auto follows your phone\'s light or dark setting.</p></div>';
+
+    if (R) {
+      h += '<div class="group-h">Game rules · F1 Fantasy 2026</div><div class="group card rules" style="padding:0">' +
+        R.sections.map(function (sec) {
+          return "<details><summary>" + esc(sec.title) + '</summary><div class="body">' +
+            (sec.intro ? "<p>" + esc(sec.intro) + "</p>" : "") +
+            '<table class="rtable"><tbody>' + sec.rows.map(function (r) { return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td></tr>"; }).join("") + "</tbody></table>" +
+            (sec.notes || []).map(function (n) { return '<p style="margin-top:8px">' + esc(n) + "</p>"; }).join("") +
+            "</div></details>";
+        }).join("") +
+        '<div class="src">From F1 Fantasy\'s official game rules, checked ' + esc(R.checked) + '. <a href="' + esc(R.source) + '" target="_blank" rel="noopener">Full rules ↗</a></div></div>';
+    }
+
+    h += '<div class="group-h">About</div><div class="group card" style="padding:0">' +
+      '<button class="item" data-open="info"><span class="lab">About the data<small>Where it comes from, freshness and checks</small></span><span class="chev">›</span></button></div>';
     openSheet(h);
+    var sel = $("meSelect");
+    if (sel) sel.addEventListener("change", function () { S.me = sel.value || null; save("me", S.me); render(); });
   }
 
   function infoSheet() {
@@ -601,11 +636,14 @@
   }
 
   document.addEventListener("click", function (e) {
-    var t = e.target.closest("[data-focus],[data-m],[data-r],[data-a],[data-me]");
+    var t = e.target.closest("[data-focus],[data-m],[data-r],[data-a],[data-theme-set],[data-open]");
     if (!t) return;
-    if (t.hasAttribute("data-me")) {
-      S.me = t.getAttribute("data-me") || null; save("me", S.me); closeSheet(); render(); return;
+    if (t.hasAttribute("data-theme-set")) {
+      applyTheme(t.getAttribute("data-theme-set"));
+      t.parentNode.querySelectorAll("button").forEach(function (b) { var on = b === t; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+      return;
     }
+    if (t.hasAttribute("data-open")) { if (t.getAttribute("data-open") === "info") infoSheet(); return; }
     if (t.hasAttribute("data-focus")) {
       var id = t.getAttribute("data-focus");
       S.focus = S.focus === id ? null : id;
@@ -618,8 +656,13 @@
   });
   $("sheetClose").addEventListener("click", closeSheet);
   $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) closeSheet(); });
-  $("meBtn").addEventListener("click", function () { if (S.model) meSheet(); });
-  $("infoBtn").addEventListener("click", function () { if (S.model) infoSheet(); });
+  $("settingsBtn").addEventListener("click", function () { if (S.model) settingsSheet(); });
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: light)");
+    var onScheme = function () { if (themeNow() === "system") applyTheme("system"); };
+    if (mq.addEventListener) mq.addEventListener("change", onScheme); else if (mq.addListener) mq.addListener(onScheme);
+  }
+  applyTheme(themeNow());
   window.addEventListener("hashchange", route);
   var rt;
   window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(function () { if (S.tab === "trends") hydrateCharts($("view")); }, 150); });

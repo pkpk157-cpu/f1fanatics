@@ -22,8 +22,10 @@ stats around them:
 - **A manager's page**: their current team, rank path, and round-by-round
   points, rank, team value and changes
 
-Pick your own team with the person icon to have yourself highlighted
-everywhere. The choice is saved on that device only.
+**Settings** (the gear, top right) has a dropdown to select your own team, which
+highlights you everywhere and is saved on that device only. It also has Dark, Light and Auto themes (dark is the default),
+the F1 Fantasy 2026 game rules (scoring, chips, transfers, prices, in
+`rules.js`, taken from F1 Fantasy's official rules text), and the About the data page.
 
 ## Where the data comes from
 

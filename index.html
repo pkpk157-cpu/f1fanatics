@@ -7,6 +7,14 @@
 <meta name="description" content="Standings and stats for the F1 Fanatics F1 Fantasy league: race-by-race scores, rank movement, form, team value and ownership." />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#050506" />
+<script>
+  /* the saved theme, before first paint: dark (default), light or system */
+  (function () {
+    var t = "dark";
+    try { var v = JSON.parse(localStorage.getItem("f1f.theme")); if (v === "light" || v === "system") t = v; } catch (e) {}
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="F1 Fanatics" />
@@ -26,11 +34,8 @@
           <div class="brand-sub" id="subline">Loading…</div>
         </div>
       </div>
-      <button class="iconbtn" id="meBtn" aria-label="Choose your team" title="Choose your team">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
-      </button>
-      <button class="iconbtn" id="infoBtn" aria-label="About the data" title="About the data">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
+      <button class="iconbtn" id="settingsBtn" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.14.6.66 1 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" /></svg>
       </button>
     </div>
   </header>
@@ -59,6 +64,7 @@
 
   <script src="config.js"></script>
   <script src="compute.js"></script>
+  <script src="rules.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
