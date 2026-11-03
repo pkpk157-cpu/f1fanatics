@@ -829,3 +829,15 @@ main .board-h { padding-bottom: 14px; }
 .rlist.races .rrow.next .rname b { color: var(--board-fg); }
 .rlist.races .rpts b { font-size: 17px; }
 .sheet .result { margin-top: 18px; }
+
+/* charts: every GP along the bottom, sideways scroll, a fixed y axis */
+.chart-wrap { display: flex; margin: 0 -6px 0 -8px; }
+.chart-y { flex: none; width: 40px; height: auto; }
+.chart-scroll { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.chart-scroll::-webkit-scrollbar { display: none; }
+.chart-scroll .chart { width: auto; max-width: none; }
+.chart .axis text { font-size: 10.5px; }
+:root { --chart-bg: #141418; }
+:root[data-theme="light"] { --chart-bg: #fbfbfd; }
+@media (prefers-color-scheme: light) { :root[data-theme="system"] { --chart-bg: #fbfbfd; } }
+.card + .chips.quiet { margin-top: -2px; }

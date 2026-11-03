@@ -12,7 +12,8 @@ Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
   its podium, Dream team and who scored, ‹ › through the season) · Race grid
 - **Your team** (middle): Season (four figures and every round) · Team ·
   Picks (who scored for you) · Rivals (either side, head to head)
-- **Trends**: Position · Gap to the leader
+- **Trends**: Position · Points (running total) · Gap to the leader. Every GP is
+  named along the bottom; the charts scroll sideways, opening at the latest round
 - **Picks**: Drivers · Constructors · Trusted (most picked across the season)
 
 The **menu** (≡, top right) has your team (with **Change**), the **Stats**

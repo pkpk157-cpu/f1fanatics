@@ -11,7 +11,7 @@
     league: [["table", "Standings"], ["prizes", "XP"]],
     races: [["list", "Races"], ["grid", "Race grid"]],
     you: [["season", "Season"], ["team", "Team"], ["picks", "Picks"], ["rivals", "Rivals"]],
-    trends: [["rank", "Position"], ["gap", "Gap"]],
+    trends: [["rank", "Position"], ["total", "Points"], ["gap", "Gap"]],
     stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["moves", "Movement"], ["value", "Value"]],
     picks: [["drivers", "Drivers"], ["constructors", "Constructors"], ["trusted", "Trusted"]]
   };
@@ -393,10 +393,8 @@
   }
 
   function viewTrends() {
-    var h = chipsHtml();
-    h += SUB("rank") + '<section class="card"><div class="chartbox" data-chart="rank"></div>' + keyHtml() + "</section>";
-    h += SUB("gap") + '<section class="card"><div class="chartbox" data-chart="gap"></div>' + keyHtml() + "</section>";
-    return h;
+    var card = function (k) { return SUB(k) + '<section class="card"><div class="chartbox" data-chart="' + k + '"></div>' + keyHtml() + "</section>" + chipsHtml(); };
+    return card("rank") + card("total") + card("gap");
   }
   function chipsHtml() {
     var M = S.model;
@@ -428,45 +426,45 @@
         if (kind === "rank") vals[r] = m.rankAt[r];
         else if (kind === "gap") vals[r] = m.cum[r] == null ? null : leadCum[r] - m.cum[r];
         else if (kind === "pts") vals[r] = m.pts[r];
+        else if (kind === "total") vals[r] = m.cum[r];
         else if (kind === "value") vals[r] = m.teamValue[r];
       });
       return { id: m.id, label: m.name, vals: vals };
     });
   }
 
-  // A plain SVG line chart, drawn at the box's real width so text stays legible.
+  // An SVG line chart with every GP named along the bottom. When the rounds
+  // don't fit, it scrolls sideways (opening at the latest) and the y axis stays put.
+  var chartScroll = {};
   function lineChart(box, kind, opts) {
     opts = opts || {};
     var M = S.model;
     var series = chartSeries(kind);
-    var W = Math.max(280, box.clientWidth || 600), H = opts.height || (W < 500 ? 230 : 270);
-    var padL = 34, padR = W < 500 ? 70 : 96, padT = 10, padB = 26;
     var rounds = M.rounds;
     if (!rounds.length) { box.innerHTML = '<div class="empty">No rounds yet.</div>'; return; }
+    var avail = Math.max(280, box.clientWidth || 600), H = opts.height || 260;
+    var axisW = 40, padL = 14, padR = 116, padT = 12, padB = 30, step = 38;
+    var W = Math.max(avail - axisW, padL + padR + (rounds.length - 1) * step);
     var all = [];
     series.forEach(function (s) { rounds.forEach(function (r) { if (s.vals[r] != null) all.push(s.vals[r]); }); });
     var invert = kind === "rank" || kind === "gap";
     var lo, hi;
     if (kind === "rank") { lo = 1; hi = M.managers.length; }
     else if (kind === "gap") { lo = 0; hi = niceMax(Math.max.apply(null, all)); }
+    else if (kind === "total") { lo = 0; hi = niceMax(Math.max.apply(null, all)); }
     else { lo = niceMin(Math.min.apply(null, all)); hi = niceMax(Math.max.apply(null, all)); }
     if (hi === lo) hi = lo + 1;
     var x = function (r) { return padL + (rounds.length === 1 ? 0 : (r - rounds[0]) / (rounds[rounds.length - 1] - rounds[0]) * (W - padL - padR)); };
     var y = function (v) { var t = (v - lo) / (hi - lo); return invert ? padT + t * (H - padT - padB) : H - padB - t * (H - padT - padB); };
     var ticks = kind === "rank" ? M.managers.map(function (m, i) { return i + 1; }).filter(function (v) { return M.managers.length <= 12 || v === 1 || v % 2 === 0; })
       : niceTicks(lo, hi, 5);
+    var tickLabel = function (t) { return kind === "total" && t >= 1000 ? fmt(t / 1000, t % 1000 ? 1 : 0) + "k" : fmt(t); };
     var g = '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="' + esc(opts.label || kind) + '">';
     g += '<g class="grid">';
-    ticks.forEach(function (t) { g += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>'; });
+    ticks.forEach(function (t) { g += '<line x1="0" x2="' + (W - padR) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>'; });
     g += '</g><g class="axis">';
-    ticks.forEach(function (t) { g += '<text x="' + (padL - 6) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + (kind === "value" ? fmt(t) : fmt(t)) + "</text>"; });
-    var step = rounds.length > 14 && W < 600 ? 3 : rounds.length > 10 ? 2 : 1;
-    rounds.forEach(function (r, i) { if (i % step === 0 || i === rounds.length - 1) g += '<text x="' + x(r) + '" y="' + (H - 8) + '" text-anchor="middle">' + r + "</text>"; });
+    rounds.forEach(function (r) { g += '<text x="' + x(r) + '" y="' + (H - 9) + '" text-anchor="middle">' + esc(abbr(roundName(r))) + "</text>"; });
     g += "</g>";
-    if (kind === "pts") {
-      var avg = rounds.map(function (r) { return [x(r), y(M.roundInfo[r - 1].avg)]; });
-      g += '<path d="' + pathOf(avg) + '" fill="none" stroke="var(--text)" stroke-opacity=".5" stroke-dasharray="4 4" stroke-width="1.4"/>';
-    }
     var role = function (s) {
       if (s.id === S.focus) return "focus";
       if (s.id === S.me) return "mine";
@@ -499,7 +497,13 @@
     for (var i = 1; i < labels.length; i++) if (labels[i].y - labels[i - 1].y < 13) labels[i].y = labels[i - 1].y + 13;
     labels.forEach(function (l) { g += '<text class="endlabel" x="' + l.x + '" y="' + (l.y + 4) + '" style="fill:' + l.col + '">' + esc(l.text) + "</text>"; });
     g += "</svg>";
-    box.innerHTML = g;
+    // the y axis, drawn separately so it stays in place while the chart scrolls
+    var ya = '<svg class="chart chart-y" viewBox="0 0 ' + axisW + " " + H + '" width="' + axisW + '" height="' + H + '" aria-hidden="true"><g class="axis">' +
+      ticks.map(function (t) { return '<text x="' + (axisW - 6) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + tickLabel(t) + "</text>"; }).join("") + "</g></svg>";
+    box.innerHTML = '<div class="chart-wrap">' + ya + '<div class="chart-scroll">' + g + "</div></div>";
+    var sc = box.querySelector(".chart-scroll");
+    sc.scrollLeft = chartScroll[kind] != null ? chartScroll[kind] : sc.scrollWidth;
+    sc.addEventListener("scroll", function () { chartScroll[kind] = sc.scrollLeft; }, { passive: true });
   }
   function valLabel(kind, v) { return kind === "rank" ? ordinal(v) : kind === "gap" ? (v ? "−" + fmt(v) : "lead") : kind === "value" ? fmt(v, 1) : fmt(v); }
   function shortName(n) { var p = n.split(" "); return p[0] + (p[1] ? " " + p[1].charAt(0) + "." : ""); }
