@@ -189,7 +189,7 @@ button { font: inherit; color: inherit; }
   position: fixed; z-index: 40; left: 0; right: 0; bottom: 0;
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding: 4px max(8px, env(safe-area-inset-left)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-right));
-  display: grid; grid-template-columns: repeat(4, minmax(0, 120px)); justify-content: center; align-items: center;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 104px)); justify-content: center; align-items: center;
   background: var(--tabbar-bg); border-radius: 0;
   -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
   border: 0; border-top: 1px solid var(--glass-line);

@@ -4,11 +4,12 @@
   "use strict";
   var CONFIG = window.F1F_CONFIG;
   var F1F = window.F1F;
-  var TABS = ["league", "trends", "you", "stats", "picks"];
-  var OLD_TABS = { standings: "league", races: "league" };
+  var TABS = ["league", "races", "you", "trends", "picks", "stats"];
+  var OLD_TABS = { standings: "league" };
   // each tab is split into sub-tabs; only the chosen one is drawn
   var SUBS = {
-    league: [["table", "Standings"], ["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"], ["prizes", "XP"]],
+    league: [["table", "Standings"], ["prizes", "XP"]],
+    races: [["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"]],
     you: [["overview", "Overview"], ["team", "Team"], ["rounds", "Rounds"], ["picks", "Picks"], ["rivals", "Rivals"]],
     trends: [["rank", "Position"], ["gap", "Gap"], ["pts", "Points"], ["value", "Value"]],
     stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["form", "Form"], ["moves", "Movement"], ["value", "Value"]],
@@ -231,22 +232,6 @@
   function viewStandings() {
     var M = S.model, h = "";
     var lastInfo = M.roundInfo[M.N - 1];
-    var me = S.me && byId(S.me);
-    h += SUB("table");
-    h += '<section class="hero">';
-    h += tile("Leader", esc(M.leader.name), fmt(M.leader.total) + " pts · " + (M.managers[1] ? "+" + fmt(M.leader.total - M.managers[1].total) + " clear" : ""));
-    if (lastInfo) h += tile("Top score, " + esc(lastInfo.short), lastInfo.winners.map(function (m) { return esc(m.name); }).join(", "), fmt(lastInfo.high) + " pts · league avg " + fmt(lastInfo.avg));
-    if (M.next) {
-      var open = M.next.lock && Date.parse(M.next.lock) > Date.now();
-      h += tile("Next: " + esc(M.next.short) + (M.next.sprint ? " (sprint)" : ""), open ? until(M.next.lock) : "Under way",
-        open ? "locks " + when(M.next.lock, { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "awaiting F1's scores");
-    }
-    else h += tile("Season", "Complete", M.N + " rounds");
-    var above = me ? M.managers[M.managers.indexOf(me) - 1] : null;
-    if (me) h += tile("You", ordinal(me.rank) + " · " + fmt(me.total), above ? fmt(me.gapAbove) + " behind " + esc(above.name) : "Top of the league");
-    else h += tile("Season", M.N + " / " + (M.N + M.remaining), M.remaining + " rounds to go");
-    h += "</section>";
-
     h += SUB("table");
     h += '<section class="board"><div class="board-h"><div class="board-t">League standings</div><div class="board-s">Points after the ' + esc(d0(lastInfo)) + "</div></div>";
     M.managers.forEach(function (m) {
@@ -944,6 +929,7 @@
     var parts = hsh.split("/");
     var p0 = OLD_TABS[parts[0]] || parts[0];
     var tab = TABS.indexOf(p0) >= 0 ? p0 : "league";
+    if (tab === "league" && /^(result|grid|winners)$/.test(parts[1] || "")) tab = "races";
     var keys = SUBS[tab].map(function (x) { return x[0]; });
     var sub = keys.indexOf(parts[1]) >= 0 ? parts[1] : keys.indexOf(S.sub[tab]) >= 0 ? S.sub[tab] : keys[0];
     var moved = tab !== S.tab || sub !== S.sub[tab];
@@ -957,7 +943,7 @@
     if (!S.model) return;
     renderChrome();
     var v = $("view");
-    var fn = { league: function () { return viewStandings() + viewRaces() + viewPrizes(); }, you: viewYou, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
+    var fn = { league: function () { return viewStandings() + viewPrizes(); }, races: viewRaces, you: viewYou, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
     var cur = S.sub[S.tab] || SUBS[S.tab][0][0];
     // Stats is reached from the menu, which lists every section, so no pill row there
     $("subtabs").innerHTML = S.tab === "stats" ? "" : SUBS[S.tab].map(function (x) {
