@@ -4,11 +4,12 @@
   "use strict";
   var CONFIG = window.F1F_CONFIG;
   var F1F = window.F1F;
-  var TABS = ["standings", "races", "trends", "stats", "picks"];
+  var TABS = ["league", "trends", "you", "stats", "picks"];
+  var OLD_TABS = { standings: "league", races: "league" };
   // each tab is split into sub-tabs; only the chosen one is drawn
   var SUBS = {
-    standings: [["table", "Table"], ["form", "Form"]],
-    races: [["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"]],
+    league: [["table", "Standings"], ["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"], ["form", "Form"]],
+    you: [["overview", "Overview"], ["team", "Team"], ["rounds", "Rounds"], ["picks", "Picks"], ["rivals", "Rivals"]],
     trends: [["rank", "Position"], ["gap", "Gap"], ["pts", "Points"], ["value", "Value"]],
     stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["form", "Form"], ["moves", "Movement"], ["value", "Value"]],
     picks: [["template", "Template"], ["drivers", "Drivers"], ["constructors", "Constructors"], ["diffs", "Differentials"], ["trusted", "Trusted"]]
@@ -24,7 +25,7 @@
   }
   var REFRESH_MS = 5 * 60 * 1000;
 
-  var S = { data: null, model: null, me: load("me"), focus: null, tab: "standings", sub: load("sub") || {}, fetchedAt: 0 };
+  var S = { data: null, model: null, me: load("me"), focus: null, tab: "league", sub: load("sub") || {}, fetchedAt: 0 };
 
   /* ---------------- small helpers ---------------- */
   function load(k) { try { return JSON.parse(localStorage.getItem("f1f." + k)); } catch (e) { return null; } }
@@ -214,14 +215,11 @@
       a.classList.toggle("active", on);
       if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
-    var T = { standings: ["Standings", "Overall league table"], races: ["Races", "Every round, every manager"], trends: ["Trends", "How the season has moved"],
-      stats: ["Stats", "Records, form and consistency"], picks: ["Picks", "Who the league is backing"] }[S.tab];
-    $("pageTitle").innerHTML = esc(T[0]) + "<small>" + esc(T[1]) + "</small>";
     var msgs = [];
     if (d._offline) msgs.push("Offline — showing the last data this phone saw.");
     if (M.sync.state === "standings-behind") msgs.push("Round " + M.N + " scores are in; F1's standings haven't caught up yet, so totals here include them already.");
     if (M.sync.state === "rounds-behind") msgs.push("F1's standings include " + (M.next ? M.next.name : "the latest round") + ", but its race-by-race scores aren't published yet. Totals are F1's; round stats stop at round " + M.N + ".");
-    if (M.sync.state === "mismatch") msgs.push("F1's standings and per-round scores don't agree right now. Totals are F1's own; tap ⓘ for details.");
+    if (M.sync.state === "mismatch") msgs.push("F1's standings and per-round scores don't agree right now. Totals are F1's own; Settings › About the data has details.");
     var b = $("banner");
     b.hidden = !msgs.length;
     b.textContent = msgs.join(" ");
@@ -232,6 +230,7 @@
     var M = S.model, h = "";
     var lastInfo = M.roundInfo[M.N - 1];
     var me = S.me && byId(S.me);
+    h += SUB("table");
     h += '<section class="hero">';
     h += tile("Leader", esc(M.leader.name), fmt(M.leader.total) + " pts · " + (M.managers[1] ? "+" + fmt(M.leader.total - M.managers[1].total) + " clear" : ""));
     if (lastInfo) h += tile("Top score, " + esc(lastInfo.short), lastInfo.winners.map(function (m) { return esc(m.name); }).join(", "), fmt(lastInfo.high) + " pts · league avg " + fmt(lastInfo.avg));
@@ -261,7 +260,7 @@
 
     // quick form glance
     h += SUB("form");
-    h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds, newest on the right. Gold, silver, bronze = 1st, 2nd, 3rd in the round; green = rest of the top third; red = bottom third.</p><div class="rows">';
+    h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds, newest on the right. Gold, silver, bronze = 1st, 2nd, 3rd in the round; green = rest of the top third; red = bottom third.</p><div class="rows ranked">';
     M.managers.slice().sort(function (a, b) { return b.form5 - a.form5; }).forEach(function (m, i) {
       h += '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + (i + 1) + '</div><div class="main"><div class="n">' + esc(m.name) +
         '</div><div class="t">last 5 avg ' + fmt(m.form5) + " (" + signed(m.formVsAvg) + " vs season)" + '</div></div><div class="form">' +
@@ -496,9 +495,9 @@
     // Records
     h += SUB("records");
     h += '<div class="grid two">';
-    h += '<section class="card"><h2>Highest rounds</h2><p class="sub">Best single-round scores this season.</p><div class="rows">' +
+    h += '<section class="card"><h2>Highest rounds</h2><p class="sub">Best single-round scores this season.</p><div class="rows ranked">' +
       M.records.top.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round), fmt(x.pts)); }).join("") + "</div></section>";
-    h += '<section class="card"><h2>Lowest rounds</h2><p class="sub">The weekends to forget.</p><div class="rows">' +
+    h += '<section class="card"><h2>Lowest rounds</h2><p class="sub">The weekends to forget.</p><div class="rows ranked">' +
       M.records.bottom.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round), fmt(x.pts)); }).join("") + "</div></section>";
     h += "</div><div style=\"height:14px\"></div>";
 
@@ -537,9 +536,9 @@
     // Movement
     h += SUB("moves");
     h += '<div class="grid two">';
-    h += '<section class="card"><h2>Biggest climbs</h2><p class="sub">Places gained in the standings in a single round.</p><div class="rows">' +
+    h += '<section class="card"><h2>Biggest climbs</h2><p class="sub">Places gained in the standings in a single round.</p><div class="rows ranked">' +
       (M.records.rises.length ? M.records.rises.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round) + " · " + ordinal(x.from) + " → " + ordinal(x.to), '<span class="up">▲' + x.delta + "</span>"); }).join("") : '<div class="empty">None yet.</div>') + "</div></section>";
-    h += '<section class="card"><h2>Biggest drops</h2><p class="sub">Places lost in a single round.</p><div class="rows">' +
+    h += '<section class="card"><h2>Biggest drops</h2><p class="sub">Places lost in a single round.</p><div class="rows ranked">' +
       (M.records.falls.length ? M.records.falls.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round) + " · " + ordinal(x.from) + " → " + ordinal(x.to), '<span class="down">▼' + -x.delta + "</span>"); }).join("") : '<div class="empty">None yet.</div>') + "</div></section>";
     h += "</div><div style=\"height:14px\"></div>";
 
@@ -624,37 +623,116 @@
   }
   function closeSheet() { var d = $("sheet"); if (d.open) { if (d.close) d.close(); else d.removeAttribute("open"); } }
 
-  function managerSheet(id) {
-    var M = S.model, m = byId(id);
-    if (!m) return;
-    var n = M.managers.length;
+  /* a manager's season, in parts: the sheet shows them all, the Your team tab one per sub-tab */
+  function managerParts(m) {
+    var M = S.model, n = M.managers.length, P = {};
     var o = {}; M.ownership.forEach(function (x) { o[x.id] = x; });
-    var h = "<h1>" + esc(m.name) + (isMe(m) ? ' <span class="pill me">you</span>' : "") + '</h1><p class="lede">' + esc(m.team) + " · " + ordinal(m.rank) + " of " + n +
+    P.head = "<h1>" + esc(m.name) + (isMe(m) ? ' <span class="pill me">you</span>' : "") + '</h1><p class="lede">' + esc(m.team) + " · " + ordinal(m.rank) + " of " + n +
       (m.gapLeader ? " · " + fmt(m.gapLeader) + " behind the leader" : " · leading") + "</p>";
-    h += '<section class="hero">' + tile("Total", fmt(m.total), "avg " + fmt(m.avg, 1) + " a round") + tile("Last round", fmt(m.last), m.roundRank[M.N] ? ordinal(m.roundRank[M.N]) + " in " + esc(roundName(M.N)) : "") +
-      tile("Best weekend", fmt(m.best && m.best.pts), m.best ? esc(roundLabel(m.best.round)) : "") + tile("Worst weekend", fmt(m.worst && m.worst.pts), m.worst ? esc(roundLabel(m.worst.round)) : "") + "</section>";
-    h += '<section class="hero">' + tile("Round wins", m.wins, m.podiums + " top-three") + tile("Form (last 5)", fmt(m.form5), signed(m.formVsAvg) + " vs season") +
+    P.tiles = '<section class="hero">' + tile("Total", fmt(m.total), "avg " + fmt(m.avg, 1) + " a round") + tile("Last round", fmt(m.last), m.roundRank[M.N] ? ordinal(m.roundRank[M.N]) + " in " + esc(roundName(M.N)) : "") +
+      tile("Best weekend", fmt(m.best && m.best.pts), m.best ? esc(roundLabel(m.best.round)) : "") + tile("Worst weekend", fmt(m.worst && m.worst.pts), m.worst ? esc(roundLabel(m.worst.round)) : "") + "</section>" +
+      '<section class="hero">' + tile("Round wins", m.wins, m.podiums + " top-three") + tile("Form (last 5)", fmt(m.form5), signed(m.formVsAvg) + " vs season") +
       tile("Team value", money(m.currentValue), m.valueGain != null ? signed(m.valueGain, 1) + "m since round " + m.joinRound : "") + tile("Highest / lowest", (m.bestRank ? ordinal(m.bestRank) : "–") + " / " + (m.worstRank ? ordinal(m.worstRank) : "–"), "league position") + "</section>";
     var lp = (S.data.assetPoints || {})[M.N] || {};
     var drv = m.picks.filter(function (id) { return (assetOf(id) || {}).type === "D"; }).map(function (id) { return { id: id }; });
     var con = m.picks.filter(function (id) { return (assetOf(id) || {}).type === "C"; }).map(function (id) { return { id: id }; });
-    h += '<section class="card"><div class="totw-h"><div><div class="k">Team value</div><div class="v">' + money(m.currentValue) + '</div></div><div class="ttl"><b>Current team</b><span>as used in ' + esc(roundName(M.N)) +
+    P.team = '<section class="card"><div class="totw-h"><div><div class="k">Team value</div><div class="v">' + money(m.currentValue) + '</div></div><div class="ttl"><b>Current team</b><span>as used in ' + esc(roundName(M.N)) +
       '</span></div><div class="r"><div class="k">' + esc(abbr(roundName(M.N))) + ' points</div><div class="v">' + fmt(m.last) + "</div></div></div>" +
       teamGrid(drv, con, function (x) { return { pts: lp[x.id], extra: (o[x.id] ? o[x.id].count + "/" + n + " own" : "") }; }) +
       '<p class="sub" style="margin:12px 0 0">Prices are ' + (M.priceRound > M.N ? "this week's" : "current") + " with the change since last round; points are F1 Fantasy's for " + esc(roundName(M.N)) + " before any Boost or chip.</p></section>";
-    h += '<section class="card"><h2>League position</h2><div class="chartbox" data-chart="rank" data-only="' + esc(m.id) + '"></div></section>';
-    if (m.preJoin) h += '<p class="sub">Joined the league from round ' + m.joinRound + "; " + fmt(m.preJoin) + " points scored before that are in the total but not in the rounds below.</p>";
-    h += '<section class="card"><h2>Round by round</h2><div class="tblwrap"><table><thead><tr><th class="l">Round</th><th>Pts</th><th>Round</th><th>League</th><th>Value</th><th>Changes</th></tr></thead><tbody>';
+    var r0 = "";
+    if (m.preJoin) r0 = '<p class="sub">Joined the league from round ' + m.joinRound + "; " + fmt(m.preJoin) + " points scored before that are in the total but not in the rounds below.</p>";
+    r0 += '<section class="card"><h2>Round by round</h2><div class="tblwrap"><table><thead><tr><th class="l">Round</th><th>Pts</th><th>Round</th><th>League</th><th>Value</th><th>Changes</th></tr></thead><tbody>';
     M.rounds.slice().reverse().forEach(function (r) {
       var ri = M.roundInfo[r - 1];
-      if (m.pts[r] == null) { h += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td colspan="5" class="muted c">not in the league yet</td></tr>'; return; }
-      h += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td class="num" style="' + heat(m.roundRank[r], ri.count) + '">' + fmt(m.pts[r]) + "</td><td>" + ordM(m.roundRank[r]) +
+      if (m.pts[r] == null) { r0 += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td colspan="5" class="muted c">not in the league yet</td></tr>'; return; }
+      r0 += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td class="num" style="' + heat(m.roundRank[r], ri.count) + '">' + fmt(m.pts[r]) + "</td><td>" + ordM(m.roundRank[r]) +
         "</td><td>" + ordM(m.rankAt[r]) + "</td><td>" + money(m.teamValue[r]) + "</td><td>" + (m.transfers[r] == null ? "–" : m.transfers[r]) + "</td></tr>";
     });
-    h += "</tbody></table></div></section>";
-    openSheet(h);
+    P.rounds = r0 + "</tbody></table></div></section>";
+
+    // the picks that earned this manager the most, while in their team
+    var earned = {}, held = {};
+    M.rounds.forEach(function (r) {
+      var pts = (S.data.assetPoints || {})[r] || {};
+      (m.team_[r] || []).forEach(function (id) { if (pts[id] != null) { earned[id] = (earned[id] || 0) + pts[id]; held[id] = (held[id] || 0) + 1; } });
+    });
+    var ids = Object.keys(earned).filter(function (id) { return assetOf(id); }).sort(function (a, b) { return earned[b] - earned[a]; });
+    var listOf = function (type, title, sub) {
+      var l = ids.filter(function (id) { return assetOf(id).type === type; });
+      return '<section class="card"><h2>' + title + '</h2><p class="sub">' + sub + '</p><div class="alist">' +
+        l.map(function (id) { return assetRow(id, "<b>" + fmt(earned[id]) + '</b><span class="k">pts</span>', held[id] + " round" + (held[id] === 1 ? "" : "s") + " in the team"); }).join("") + "</div></section>";
+    };
+    P.picks = listOf("D", "Drivers who scored for you", "F1 Fantasy points each driver scored while in this team, before Boosts and chips.") +
+      listOf("C", "Constructors who scored for you", "Points each constructor scored while in this team.") +
+      '<section class="hero">' + tile("Picks changed", fmt(m.totalTransfers), fmt(m.totalTransfers / Math.max(1, m.played - 1), 1) + " a round") +
+      tile("Different picks used", ids.length, "drivers and constructors") + "</section>";
+
+    // rivals: neighbours in the table, and head-to-head against everyone
+    var i = M.managers.indexOf(m), above = M.managers[i - 1], below = M.managers[i + 1], back = Math.max(1, M.N - 5);
+    var gapRow = function (x, lbl) {
+      if (!x) return "";
+      var now = x.total - m.total, then = x.cum[back] != null && m.cum[back] != null ? x.cum[back] - m.cum[back] : null;
+      // from your point of view: are you catching the one ahead / holding off the one behind?
+      var d = then == null ? null : Math.abs(now) - Math.abs(then), since = " since R" + back;
+      var trend = d == null ? "" : d === 0 ? "no change" + since :
+        lbl === "Ahead" ? (d < 0 ? "you've closed " + fmt(-d) + since : "they've pulled away by " + fmt(d) + since)
+                        : (d < 0 ? "they've closed " + fmt(-d) + " on you" + since : "you've pulled away by " + fmt(d) + since);
+      return '<div class="row click" data-m="' + esc(x.id) + '"><div class="rk"><span class="' + "t" + medal(x.rank) + '">' + x.rank + '</span></div><div class="main"><div class="n">' + lbl + ": " + esc(x.name) +
+        '</div><div class="t">' + esc(trend) + '</div></div><div class="big ' + (now > 0 ? "down" : "up") + '">' + (now > 0 ? "−" : "+") + fmt(Math.abs(now)) + "</div></div>";
+    };
+    var h2h = M.managers.filter(function (x) { return x !== m; }).map(function (x) {
+      var w = 0, l = 0, d = 0;
+      M.rounds.forEach(function (r) { if (m.pts[r] == null || x.pts[r] == null) return; if (m.pts[r] > x.pts[r]) w++; else if (m.pts[r] < x.pts[r]) l++; else d++; });
+      return { x: x, w: w, l: l, d: d };
+    });
+    P.rivals = '<section class="card"><h2>Either side of you</h2><p class="sub">The gap now, and how it has moved over the last five rounds.</p><div class="rows">' +
+      (gapRow(above, "Ahead") + gapRow(below, "Behind") || '<div class="empty">Nobody either side.</div>') + "</div></section>" +
+      '<section class="card"><h2>Head to head</h2><p class="sub">Rounds won, lost and tied against each manager, round by round.</p><div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>W</th><th>L</th><th>T</th><th>Total gap</th></tr></thead><tbody>' +
+      h2h.map(function (r) {
+        var g = m.total - r.x.total;
+        return '<tr class="click" data-m="' + esc(r.x.id) + '">' + whoCell(r.x) + '<td class="num ' + (r.w > r.l ? "up" : r.w < r.l ? "down" : "") + '">' + r.w + "</td><td>" + r.l + "</td><td>" + r.d +
+          '</td><td class="' + (g >= 0 ? "up" : "down") + '">' + signed(g) + "</td></tr>";
+      }).join("") + "</tbody></table></div></section>";
+    return P;
+  }
+
+  function managerSheet(id) {
+    var m = byId(id);
+    if (!m) return;
+    var P = managerParts(m);
+    openSheet(P.head + P.tiles + P.team + '<section class="card"><h2>League position</h2><div class="chartbox" data-chart="rank" data-only="' + esc(m.id) + '"></div></section>' + P.rounds + P.picks + P.rivals);
     var focusChart = $("sheet").querySelector('[data-chart="rank"]');
     if (focusChart) { var prev = S.focus; S.focus = m.id; lineChart(focusChart, "rank", { label: "League position" }); S.focus = prev; }
+  }
+
+  function teamSelect() {
+    return '<select class="select meSelect" aria-label="Select your team"><option value="">Select your team…</option>' +
+      S.model.managers.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (m) {
+        return '<option value="' + esc(m.id) + '"' + (isMe(m) ? " selected" : "") + ">" + esc(m.name) + " — " + esc(m.team) + "</option>";
+      }).join("") + "</select>";
+  }
+
+  /* Your team: your season, one part per sub-tab */
+  function viewYou() {
+    var m = S.me && byId(S.me);
+    if (!m) {
+      return '<section class="card youpick"><h2>Which team is yours?</h2><p class="sub">Pick it once and this tab becomes your season: your team, every round, the picks that scored for you, and your rivals. Saved on this device only.</p>' +
+        teamSelect() + "</section>";
+    }
+    var P = managerParts(m), M = S.model;
+    var n = lastFirst(m);
+    var head = '<section class="you-h"><div class="you-pos"><span class="' + "t" + medal(m.rank) + '">' + m.rank + '</span><small>of ' + M.managers.length + '</small></div><div class="you-name">' +
+      (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b><small>" + esc(m.team) + '</small></div><div class="you-pts"><b>' + fmt(m.total) + "</b><small>" +
+      (m.gapLeader ? "−" + fmt(m.gapLeader) + " to 1st" : "leading") + "</small></div></section>";
+    return head +
+      SUB("overview") + P.tiles +
+      '<section class="card"><h2>Your league position</h2><p class="sub">You in blue, the leader in gold.</p><div class="chartbox" data-chart="rank"></div></section>' +
+      '<section class="card"><h2>Your points per round</h2><p class="sub">Against the league average (dashed).</p><div class="chartbox" data-chart="pts"></div></section>' +
+      SUB("team") + P.team +
+      SUB("rounds") + P.rounds +
+      SUB("picks") + P.picks +
+      SUB("rivals") + P.rivals;
   }
 
   function roundSheet(r) {
@@ -719,10 +797,7 @@
     var h = '<h1>Settings</h1><p class="lede">' + esc((S.data.league && S.data.league.name) || CONFIG.leagueName) + " · league " + esc(S.data.league.id) + "</p>";
 
     h += '<div class="group-h">Your team</div><div class="group card" style="padding:14px">' +
-      '<select class="select" id="meSelect" aria-label="Select your team"><option value="">Select your team…</option>' +
-      M.managers.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (m) {
-        return '<option value="' + esc(m.id) + '"' + (isMe(m) ? " selected" : "") + ">" + esc(m.name) + " — " + esc(m.team) + "</option>";
-      }).join("") + '</select><p class="sub" style="margin:8px 2px 0">You\'re highlighted in every table and chart. Saved on this device only.</p></div>';
+      teamSelect() + '<p class="sub" style="margin:8px 2px 0">You\'re highlighted in every table and chart. Saved on this device only.</p></div>';
 
     h += '<div class="group-h">Appearance</div><div class="group card" style="padding:14px"><div class="seg" role="radiogroup" aria-label="Theme">' +
       [["dark", "Dark"], ["light", "Light"], ["system", "Auto"]].map(function (o) {
@@ -744,8 +819,7 @@
     h += '<div class="group-h">About</div><div class="group card" style="padding:0">' +
       '<button class="item" data-open="info"><span class="lab">About the data<small>Where it comes from, freshness and checks</small></span><span class="chev">›</span></button></div>';
     openSheet(h);
-    var sel = $("meSelect");
-    if (sel) sel.addEventListener("change", function () { S.me = sel.value || null; save("me", S.me); render(); });
+
   }
 
   function infoSheet() {
@@ -772,7 +846,8 @@
   function route() {
     var hsh = (location.hash || "").replace(/^#/, "");
     var parts = hsh.split("/");
-    var tab = TABS.indexOf(parts[0]) >= 0 ? parts[0] : "standings";
+    var p0 = OLD_TABS[parts[0]] || parts[0];
+    var tab = TABS.indexOf(p0) >= 0 ? p0 : "league";
     var keys = SUBS[tab].map(function (x) { return x[0]; });
     var sub = keys.indexOf(parts[1]) >= 0 ? parts[1] : keys.indexOf(S.sub[tab]) >= 0 ? S.sub[tab] : keys[0];
     var moved = tab !== S.tab || sub !== S.sub[tab];
@@ -786,7 +861,7 @@
     if (!S.model) return;
     renderChrome();
     var v = $("view");
-    var fn = { standings: viewStandings, races: viewRaces, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
+    var fn = { league: function () { return viewStandings() + viewRaces(); }, you: viewYou, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
     var cur = S.sub[S.tab] || SUBS[S.tab][0][0];
     $("subtabs").innerHTML = SUBS[S.tab].map(function (x) {
       return '<a href="#' + S.tab + "/" + x[0] + '" class="' + (x[0] === cur ? "on" : "") + '"' + (x[0] === cur ? ' aria-current="page"' : "") + ">" + esc(x[1]) + "</a>";
@@ -833,6 +908,9 @@
     if (t.hasAttribute("data-m")) managerSheet(t.getAttribute("data-m"));
     else if (t.hasAttribute("data-r")) roundSheet(Number(t.getAttribute("data-r")));
     else if (t.hasAttribute("data-a")) assetSheet(t.getAttribute("data-a"));
+  });
+  document.addEventListener("change", function (e) {
+    if (e.target.classList && e.target.classList.contains("meSelect")) { S.me = e.target.value || null; save("me", S.me); render(); }
   });
   $("sheetClose").addEventListener("click", closeSheet);
   $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) closeSheet(); });

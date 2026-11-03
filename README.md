@@ -4,23 +4,18 @@ A static, installable (PWA) tracker for the **F1 Fanatics** F1 Fantasy private
 league (league `1583310`), 2026 season. Classic overall standings, with the
 stats around them:
 
-- **Standings**: total, last-round points, places moved, gap to the leader, plus a
-  five-round form guide
-- **Races**: every manager's points in every round as a heatmap (shaded by
-  finishing position within the round, round winners outlined), and a
-  page per round showing who scored and which drivers delivered
-- **Trends**: league position by round, points behind the leader, points per
-  round against the league average, and team value. Tap any manager to
-  highlight them.
-- **Stats**: highest and lowest rounds, each manager's best and worst weekends,
-  consistency, round wins, top-threes and last places, form (last 3 and 5 rounds
-  against their season average), biggest climbs and drops, team value and
-  picks changed
-- **Picks**: league ownership of every driver and constructor against the
-  whole game's, the league template, differentials, and the picks trusted most
-  over the season
-- **A manager's page**: their current team, rank path, and round-by-round
-  points, rank, team value and changes
+Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
+
+- **League**: Standings · Result (podium of each round, with ‹ › through the
+  season) · Race grid (every manager's points every round) · Winners · Form
+- **Trends**: Position · Gap to the leader · Points per round · Team value
+- **Your team** (middle): your season. Overview · Team · Rounds · Picks (the
+  drivers and constructors who scored for you) · Rivals (who's either side and
+  your head-to-head record against everyone)
+- **Stats**: Records · Weekends · Honours · Form · Movement · Value
+- **Picks**: Template · Drivers · Constructors · Differentials · Trusted
+
+Tap any manager, round, driver or constructor for its page.
 
 **Settings** (the gear, top right) has a dropdown to select your own team, which
 highlights you everywhere and is saved on that device only. It also has Dark, Light and Auto themes (dark is the default),
