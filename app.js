@@ -433,38 +433,25 @@
     });
   }
 
-  // An SVG line chart with every GP named along the bottom. When the rounds
-  // don't fit, it scrolls sideways (opening at the latest) and the y axis stays put.
-  var chartScroll = {};
+  // An SVG line chart with every GP named along the bottom. It scrolls when the
+  // rounds don't fit, and zooms on both axes (pinch, trackpad pinch, or + / −);
+  // the axes stay in place and follow the plot while it pans.
+  var chartScroll = {}, chartZoom = {};
+  var Z_MAX = 5;
   function lineChart(box, kind, opts) {
     opts = opts || {};
-    var M = S.model;
-    var series = chartSeries(kind);
-    var rounds = M.rounds;
+    var M = S.model, rounds = M.rounds;
     if (!rounds.length) { box.innerHTML = '<div class="empty">No rounds yet.</div>'; return; }
-    var avail = Math.max(280, box.clientWidth || 600), H = opts.height || 260;
-    var axisW = 40, padL = 14, padR = 116, padT = 12, padB = 30, step = 38;
-    var W = Math.max(avail - axisW, padL + padR + (rounds.length - 1) * step);
+    var series = chartSeries(kind);
     var all = [];
     series.forEach(function (s) { rounds.forEach(function (r) { if (s.vals[r] != null) all.push(s.vals[r]); }); });
     var invert = kind === "rank" || kind === "gap";
     var lo, hi;
     if (kind === "rank") { lo = 1; hi = M.managers.length; }
-    else if (kind === "gap") { lo = 0; hi = niceMax(Math.max.apply(null, all)); }
-    else if (kind === "total") { lo = 0; hi = niceMax(Math.max.apply(null, all)); }
+    else if (kind === "gap" || kind === "total") { lo = 0; hi = niceMax(Math.max.apply(null, all)); }
     else { lo = niceMin(Math.min.apply(null, all)); hi = niceMax(Math.max.apply(null, all)); }
     if (hi === lo) hi = lo + 1;
-    var x = function (r) { return padL + (rounds.length === 1 ? 0 : (r - rounds[0]) / (rounds[rounds.length - 1] - rounds[0]) * (W - padL - padR)); };
-    var y = function (v) { var t = (v - lo) / (hi - lo); return invert ? padT + t * (H - padT - padB) : H - padB - t * (H - padT - padB); };
-    var ticks = kind === "rank" ? M.managers.map(function (m, i) { return i + 1; }).filter(function (v) { return M.managers.length <= 12 || v === 1 || v % 2 === 0; })
-      : niceTicks(lo, hi, 5);
-    var tickLabel = function (t) { return kind === "total" && t >= 1000 ? fmt(t / 1000, t % 1000 ? 1 : 0) + "k" : fmt(t); };
-    var g = '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="' + esc(opts.label || kind) + '">';
-    g += '<g class="grid">';
-    ticks.forEach(function (t) { g += '<line x1="0" x2="' + (W - padR) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>'; });
-    g += '</g><g class="axis">';
-    rounds.forEach(function (r) { g += '<text x="' + x(r) + '" y="' + (H - 9) + '" text-anchor="middle">' + esc(abbr(roundName(r))) + "</text>"; });
-    g += "</g>";
+    var axisW = 40, xH = 24, baseH = 224, padL = 16, padR = 116, padT = 12, padB = 10, step = 38;
     var role = function (s) {
       if (s.id === S.focus) return "focus";
       if (s.id === S.me) return "mine";
@@ -472,38 +459,111 @@
       return "";
     };
     var order = series.slice().sort(function (a, b) { return (role(a) ? 1 : 0) - (role(b) ? 1 : 0) || (role(a) === "focus") - (role(b) === "focus"); });
-    var labels = [];
-    order.forEach(function (s) {
-      var segs = [], cur = [];
-      rounds.forEach(function (r) {
-        if (s.vals[r] == null) { if (cur.length) segs.push(cur); cur = []; }
-        else cur.push([x(r), y(s.vals[r])]);
-      });
-      if (cur.length) segs.push(cur);
-      var d = segs.map(pathOf).join(" ");
-      var cls = role(s);
-      g += '<path class="series ' + cls + '" d="' + d + '"/>';
-      g += '<path class="hit" d="' + d + '" data-focus="' + esc(s.id) + '"><title>' + esc(s.label) + "</title></path>";
-      if (cls) {
-        var lastR = null; rounds.forEach(function (r) { if (s.vals[r] != null) lastR = r; });
-        if (lastR != null) {
-          var col = cls === "focus" ? "var(--accent)" : cls === "mine" ? "var(--me)" : "var(--gold)";
-          g += '<circle class="dot" cx="' + x(lastR) + '" cy="' + y(s.vals[lastR]) + '" r="3.5" stroke="' + col + '"/>';
-          labels.push({ y: y(s.vals[lastR]), x: x(lastR) + 8, text: shortName(s.label) + " " + valLabel(kind, s.vals[lastR]), col: col });
+    var tickLabel = function (t) { return kind === "total" && t >= 1000 ? fmt(t / 1000, t % 1000 ? 1 : 0) + "k" : fmt(t); };
+
+    box.innerHTML = '<div class="cz"><div class="cz-y"><div class="cz-yi"></div></div><div class="cz-plot"></div><div class="cz-corner"></div><div class="cz-x"><div class="cz-xi"></div></div>' +
+      '<div class="cz-tools"><button type="button" data-zoom="out" aria-label="Zoom out">−</button><button type="button" data-zoom="in" aria-label="Zoom in">+</button></div></div>';
+    var plot = box.querySelector(".cz-plot"), yi = box.querySelector(".cz-yi"), xi = box.querySelector(".cz-xi");
+    var geo = null;
+
+    function draw(z) {
+      var avail = Math.max(240, plot.clientWidth || 300);
+      var W = Math.max(avail, padL + padR + (rounds.length - 1) * step * z), H = Math.round(baseH * z);
+      var x = function (r) { return padL + (rounds.length === 1 ? 0 : (r - rounds[0]) / (rounds[rounds.length - 1] - rounds[0]) * (W - padL - padR)); };
+      var y = function (v) { var t = (v - lo) / (hi - lo); return invert ? padT + t * (H - padT - padB) : H - padB - t * (H - padT - padB); };
+      var nT = Math.max(4, Math.round(5 * z));
+      var ticks = kind === "rank" ? M.managers.map(function (m, i) { return i + 1; }).filter(function (v) { return z > 1.3 || M.managers.length <= 12 || v === 1 || v % 2 === 0; }) : niceTicks(lo, hi, nT);
+      var g = '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="' + esc(opts.label || kind) + '"><g class="grid">';
+      ticks.forEach(function (t) { g += '<line x1="0" x2="' + (W - padR) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>'; });
+      g += "</g>";
+      var labels = [];
+      order.forEach(function (s) {
+        var segs = [], cur = [];
+        rounds.forEach(function (r) {
+          if (s.vals[r] == null) { if (cur.length) segs.push(cur); cur = []; }
+          else cur.push([x(r), y(s.vals[r])]);
+        });
+        if (cur.length) segs.push(cur);
+        var d = segs.map(pathOf).join(" "), cls = role(s);
+        g += '<path class="series ' + cls + '" d="' + d + '"/><path class="hit" d="' + d + '" data-focus="' + esc(s.id) + '"><title>' + esc(s.label) + "</title></path>";
+        if (cls) {
+          var lastR = null; rounds.forEach(function (r) { if (s.vals[r] != null) lastR = r; });
+          if (lastR != null) {
+            var col = cls === "focus" ? "var(--accent)" : cls === "mine" ? "var(--me)" : "var(--gold)";
+            g += '<circle class="dot" cx="' + x(lastR) + '" cy="' + y(s.vals[lastR]) + '" r="3.5" stroke="' + col + '"/>';
+            labels.push({ y: y(s.vals[lastR]), x: x(lastR) + 8, text: shortName(s.label) + " " + valLabel(kind, s.vals[lastR]), col: col });
+          }
         }
-      }
+      });
+      labels.sort(function (a, b) { return a.y - b.y; });
+      for (var i = 1; i < labels.length; i++) if (labels[i].y - labels[i - 1].y < 13) labels[i].y = labels[i - 1].y + 13;
+      labels.forEach(function (l) { g += '<text class="endlabel" x="' + l.x + '" y="' + (l.y + 4) + '" style="fill:' + l.col + '">' + esc(l.text) + "</text>"; });
+      plot.innerHTML = g + "</svg>";
+      yi.innerHTML = '<svg class="chart" viewBox="0 0 ' + axisW + " " + H + '" width="' + axisW + '" height="' + H + '" aria-hidden="true"><g class="axis">' +
+        ticks.map(function (t) { return '<text x="' + (axisW - 6) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + tickLabel(t) + "</text>"; }).join("") + "</g></svg>";
+      xi.innerHTML = '<svg class="chart" viewBox="0 0 ' + W + " " + xH + '" width="' + W + '" height="' + xH + '" aria-hidden="true"><g class="axis">' +
+        rounds.map(function (r) { return '<text x="' + x(r) + '" y="' + (xH - 8) + '" text-anchor="middle">' + esc(abbr(roundName(r))) + "</text>"; }).join("") + "</g></svg>";
+      geo = { W: W, H: H, z: z };
+      box.querySelector('[data-zoom="out"]').disabled = z <= 1.001;
+      box.querySelector('[data-zoom="in"]').disabled = z >= Z_MAX - 0.001;
+    }
+    function sync() {
+      yi.style.transform = "translateY(" + -plot.scrollTop + "px)";
+      xi.style.transform = "translateX(" + -plot.scrollLeft + "px)";
+      chartScroll[kind] = { l: plot.scrollLeft, t: plot.scrollTop };
+    }
+    // zoom to z, keeping the point at (fx, fy) in the visible plot where it is
+    function zoomTo(z, fx, fy) {
+      z = Math.max(1, Math.min(Z_MAX, z));
+      if (geo && Math.abs(z - geo.z) < 0.001) return;
+      var old = geo, cx = plot.scrollLeft + fx, cy = plot.scrollTop + fy;
+      draw(z);
+      chartZoom[kind] = z;
+      var nx = padL + (cx - padL) * (geo.W - padL - padR) / (old.W - padL - padR);
+      var ny = padT + (cy - padT) * (geo.H - padT - padB) / (old.H - padT - padB);
+      plot.scrollLeft = nx - fx;
+      plot.scrollTop = ny - fy;
+      sync();
+    }
+
+    draw(chartZoom[kind] || 1);
+    var saved = chartScroll[kind];
+    plot.scrollLeft = saved ? saved.l : plot.scrollWidth;
+    plot.scrollTop = saved ? saved.t : 0;
+    sync();
+    plot.addEventListener("scroll", sync, { passive: true });
+
+    box.querySelectorAll("[data-zoom]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var f = b.getAttribute("data-zoom") === "in" ? 1.6 : 1 / 1.6;
+        zoomTo(geo.z * f, plot.clientWidth / 2, plot.clientHeight / 2);
+      });
     });
-    labels.sort(function (a, b) { return a.y - b.y; });
-    for (var i = 1; i < labels.length; i++) if (labels[i].y - labels[i - 1].y < 13) labels[i].y = labels[i - 1].y + 13;
-    labels.forEach(function (l) { g += '<text class="endlabel" x="' + l.x + '" y="' + (l.y + 4) + '" style="fill:' + l.col + '">' + esc(l.text) + "</text>"; });
-    g += "</svg>";
-    // the y axis, drawn separately so it stays in place while the chart scrolls
-    var ya = '<svg class="chart chart-y" viewBox="0 0 ' + axisW + " " + H + '" width="' + axisW + '" height="' + H + '" aria-hidden="true"><g class="axis">' +
-      ticks.map(function (t) { return '<text x="' + (axisW - 6) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + tickLabel(t) + "</text>"; }).join("") + "</g></svg>";
-    box.innerHTML = '<div class="chart-wrap">' + ya + '<div class="chart-scroll">' + g + "</div></div>";
-    var sc = box.querySelector(".chart-scroll");
-    sc.scrollLeft = chartScroll[kind] != null ? chartScroll[kind] : sc.scrollWidth;
-    sc.addEventListener("scroll", function () { chartScroll[kind] = sc.scrollLeft; }, { passive: true });
+    // two-finger pinch on phones
+    var pinch = null, raf = 0;
+    var dist = function (t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); };
+    plot.addEventListener("touchstart", function (e) {
+      if (e.touches.length === 2) {
+        var r = plot.getBoundingClientRect();
+        pinch = { d: dist(e.touches), z: geo.z,
+          fx: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left, fy: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top };
+      }
+    }, { passive: true });
+    plot.addEventListener("touchmove", function (e) {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      var z = pinch.z * dist(e.touches) / pinch.d;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(function () { zoomTo(z, pinch.fx, pinch.fy); });
+    }, { passive: false });
+    plot.addEventListener("touchend", function (e) { if (e.touches.length < 2) pinch = null; }, { passive: true });
+    // trackpad pinch (reported as ctrl + wheel)
+    plot.addEventListener("wheel", function (e) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      var r = plot.getBoundingClientRect();
+      zoomTo(geo.z * Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
   }
   function valLabel(kind, v) { return kind === "rank" ? ordinal(v) : kind === "gap" ? (v ? "−" + fmt(v) : "lead") : kind === "value" ? fmt(v, 1) : fmt(v); }
   function shortName(n) { var p = n.split(" "); return p[0] + (p[1] ? " " + p[1].charAt(0) + "." : ""); }

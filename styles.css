@@ -831,13 +831,24 @@ main .board-h { padding-bottom: 14px; }
 .sheet .result { margin-top: 18px; }
 
 /* charts: every GP along the bottom, sideways scroll, a fixed y axis */
-.chart-wrap { display: flex; margin: 0 -6px 0 -8px; }
-.chart-y { flex: none; width: 40px; height: auto; }
-.chart-scroll { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-.chart-scroll::-webkit-scrollbar { display: none; }
-.chart-scroll .chart { width: auto; max-width: none; }
 .chart .axis text { font-size: 10.5px; }
 :root { --chart-bg: #141418; }
 :root[data-theme="light"] { --chart-bg: #fbfbfd; }
 @media (prefers-color-scheme: light) { :root[data-theme="system"] { --chart-bg: #fbfbfd; } }
 .card + .chips.quiet { margin-top: -2px; }
+
+/* zoomable charts: y axis | plot (scrolls both ways) / corner | x axis */
+.cz { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: 32px 224px 24px; margin: -4px -6px 0 -8px; }
+.cz-y, .cz-x { overflow: hidden; position: relative; }
+.cz-yi, .cz-xi { will-change: transform; }
+.cz-plot { overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.cz-plot::-webkit-scrollbar { display: none; }
+.cz .chart { width: auto; max-width: none; display: block; }
+.cz-tools { grid-column: 1 / -1; grid-row: 1; justify-self: end; display: flex; gap: 6px; margin-right: 4px; }
+.cz-y { grid-column: 1; grid-row: 2; } .cz-plot { grid-column: 2; grid-row: 2; }
+.cz-corner { grid-column: 1; grid-row: 3; } .cz-x { grid-column: 2; grid-row: 3; }
+.cz-tools button {
+  width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--glass-line); background: var(--glass-strong); color: var(--text);
+  font-size: 18px; line-height: 1; cursor: pointer; -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); padding: 0;
+}
+.cz-tools button:disabled { opacity: .35; cursor: default; }
