@@ -934,7 +934,15 @@
   // which pictures the photos workflow has mirrored; none yet = initials
   var photosReady = fetch("photos/index.json", { cache: "no-cache" }).then(function (r) { return r.ok ? r.json() : {}; })
     .catch(function () { return {}; }).then(function (p) { S.photos = p || {}; });
-  Promise.all([fetchData(), photosReady]).then(function (r) { setData(r[0]); route(); }).catch(function (e) {
+  // the opening screen stays at least two seconds from the first paint
+  function hideSplash() {
+    var el = $("splash");
+    if (!el) return;
+    var wait = Math.max(0, 2000 - (Date.now() - (window.F1F_T0 || Date.now())));
+    setTimeout(function () { el.classList.add("done"); setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 600); }, wait);
+  }
+  Promise.all([fetchData(), photosReady]).then(function (r) { setData(r[0]); route(); hideSplash(); }).catch(function (e) {
+    hideSplash();
     $("view").innerHTML = '<div class="empty">Couldn\'t load the league data (' + esc(e.message) + "). Pull to refresh or try again shortly.</div>";
     $("subline").textContent = "Offline";
   });
