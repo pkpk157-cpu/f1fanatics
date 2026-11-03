@@ -5,9 +5,26 @@
   var CONFIG = window.F1F_CONFIG;
   var F1F = window.F1F;
   var TABS = ["standings", "races", "trends", "stats", "picks"];
+  // each tab is split into sub-tabs; only the chosen one is drawn
+  var SUBS = {
+    standings: [["table", "Table"], ["form", "Form"]],
+    races: [["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"]],
+    trends: [["rank", "Position"], ["gap", "Gap"], ["pts", "Points"], ["value", "Value"]],
+    stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["form", "Form"], ["moves", "Movement"], ["value", "Value"]],
+    picks: [["template", "Template"], ["drivers", "Drivers"], ["constructors", "Constructors"], ["diffs", "Differentials"], ["trusted", "Trusted"]]
+  };
+  var MARK = "\u0001";
+  function SUB(key) { return MARK + key + MARK; }
+  // keep what comes before the first marker (shared by every sub-tab) and the chosen part
+  function pickSub(html, key) {
+    var parts = html.split(MARK);
+    var out = parts[0];
+    for (var i = 1; i + 1 < parts.length; i += 2) if (parts[i] === key) out += parts[i + 1];
+    return out;
+  }
   var REFRESH_MS = 5 * 60 * 1000;
 
-  var S = { data: null, model: null, me: load("me"), focus: null, tab: "standings", fetchedAt: 0 };
+  var S = { data: null, model: null, me: load("me"), focus: null, tab: "standings", sub: load("sub") || {}, fetchedAt: 0 };
 
   /* ---------------- small helpers ---------------- */
   function load(k) { try { return JSON.parse(localStorage.getItem("f1f." + k)); } catch (e) { return null; } }
@@ -189,6 +206,7 @@
       " · updated " + ago(d.generatedAt);
     document.querySelectorAll("#tabs a").forEach(function (a) {
       var on = a.dataset.tab === S.tab;
+      a.setAttribute("href", "#" + a.dataset.tab + (S.sub[a.dataset.tab] ? "/" + S.sub[a.dataset.tab] : ""));
       a.classList.toggle("active", on);
       if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
@@ -224,6 +242,7 @@
     else h += tile("Season", M.N + " / " + (M.N + M.remaining), M.remaining + " rounds to go");
     h += "</section>";
 
+    h += SUB("table");
     h += '<section class="board"><div class="board-h"><div class="board-t">League standings</div><div class="board-s">Points after the ' + esc(d0(lastInfo)) + "</div></div>";
     M.managers.forEach(function (m) {
       var mv = m.move > 0 ? '<span class="up">▲' + m.move + "</span>" : m.move < 0 ? '<span class="down">▼' + -m.move + "</span>" : "";
@@ -237,6 +256,7 @@
     h += '<p class="board-note">▲▼ = places moved in ' + esc(lastInfo ? lastInfo.name : "the last round") + ". Tap a manager for their season.</p></section>";
 
     // quick form glance
+    h += SUB("form");
     h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds, newest on the right. Purple = won the round, green = top third, red = bottom third.</p><div class="rows">';
     M.managers.slice().sort(function (a, b) { return b.form5 - a.form5; }).forEach(function (m, i) {
       h += '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + (i + 1) + '</div><div class="main"><div class="n">' + esc(m.name) +
@@ -285,7 +305,9 @@
   function viewRaces() {
     var M = S.model, h = "";
     if (S.podR == null || S.podR > M.N || S.podR < 1) S.podR = M.N;
+    h += SUB("result");
     h += podiumHtml(S.podR, true);
+    h += SUB("grid");
     h += '<section class="card"><h2>Race by race</h2><p class="sub">Points each round. The brighter the red, the higher they finished in that round; gold outline = round winner.</p>';
     h += '<div class="tblwrap"><table class="heat"><thead><tr><th class="l">Manager</th>';
     M.roundInfo.forEach(function (ri) { h += '<th class="rd" title="' + esc(ri.name) + '">' + esc(abbr(ri.short)) + "<br>" + ri.round + "</th>"; });
@@ -311,6 +333,7 @@
     }
     h += "</section>";
 
+    h += SUB("winners");
     h += '<section class="board"><div class="board-h"><div class="board-t">Round winners</div><div class="board-s">Top score in the league each round · tap for the full result</div></div>';
     M.roundInfo.slice().reverse().forEach(function (ri) {
       h += standRow({
@@ -339,9 +362,13 @@
   function viewTrends() {
     var M = S.model, h = "";
     h += chipsHtml();
+    h += SUB("rank");
     h += '<section class="card"><h2>League position by round</h2><p class="sub">Where each manager stood after every round.</p><div class="chartbox" data-chart="rank"></div>' + keyHtml() + "</section>";
+    h += SUB("gap");
     h += '<section class="card"><h2>Points behind the leader</h2><p class="sub">The gap to whoever was top after each round. 0 = leading.</p><div class="chartbox" data-chart="gap"></div>' + keyHtml() + "</section>";
+    h += SUB("pts");
     h += '<section class="card"><h2>Points per round</h2><p class="sub">Each round\'s score; the dashed line is the league average.</p><div class="chartbox" data-chart="pts"></div>' + keyHtml() + "</section>";
+    h += SUB("value");
     h += '<section class="card"><h2>Team value ($m)</h2><p class="sub">The seven picks at each round\'s prices. Teams start at $100m; cash in the bank isn\'t published. A one-round spike is the Limitless chip.</p><div class="chartbox" data-chart="value"></div>' + keyHtml() + "</section>";
     return h;
   }
@@ -462,6 +489,7 @@
     var n = M.managers.length;
 
     // Records
+    h += SUB("records");
     h += '<div class="grid two">';
     h += '<section class="card"><h2>Highest rounds</h2><p class="sub">Best single-round scores this season.</p><div class="rows">' +
       M.records.top.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round), fmt(x.pts)); }).join("") + "</div></section>";
@@ -470,6 +498,7 @@
     h += "</div><div style=\"height:14px\"></div>";
 
     // Best / worst weekends per manager + consistency
+    h += SUB("weekends");
     h += '<section class="card"><h2>Best &amp; worst weekends</h2><p class="sub">Per manager. SD = how much their score swings round to round (lower = steadier).</p>';
     h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>Best</th><th class="l"></th><th>Worst</th><th class="l"></th><th>Avg</th><th>Median</th><th>SD</th></tr></thead><tbody>';
     M.managers.forEach(function (m) {
@@ -481,6 +510,7 @@
     h += "</tbody></table></div></section>";
 
     // Honours
+    h += SUB("honours");
     h += '<section class="card"><h2>Round honours</h2><p class="sub">Round wins (top score of the round, ties shared), top-three finishes, last places, rounds above the league average, and rounds spent top of the standings.</p>';
     h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>Wins</th><th>Top 3</th><th>Last</th><th>Above avg</th><th>Led after</th></tr></thead><tbody>';
     M.managers.slice().sort(function (a, b) { return b.wins - a.wins || b.podiums - a.podiums || a.rank - b.rank; }).forEach(function (m) {
@@ -490,6 +520,7 @@
     h += "</tbody></table></div></section>";
 
     // Form
+    h += SUB("form");
     h += '<section class="card"><h2>Form</h2><p class="sub">Average over the last 3 and 5 rounds, against the manager\'s own season average.</p>';
     h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th class="c">Last 5 (round finish)</th><th>L3</th><th>L5</th><th>Season</th><th>vs season</th></tr></thead><tbody>';
     M.managers.slice().sort(function (a, b) { return b.form5 - a.form5; }).forEach(function (m) {
@@ -499,6 +530,7 @@
     h += "</tbody></table></div></section>";
 
     // Movement
+    h += SUB("moves");
     h += '<div class="grid two">';
     h += '<section class="card"><h2>Biggest climbs</h2><p class="sub">Places gained in the standings in a single round.</p><div class="rows">' +
       (M.records.rises.length ? M.records.rises.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round) + " · " + ordinal(x.from) + " → " + ordinal(x.to), '<span class="up">▲' + x.delta + "</span>"); }).join("") : '<div class="empty">None yet.</div>') + "</div></section>";
@@ -515,6 +547,7 @@
     h += "</tbody></table></div></section>";
 
     // Team value & transfers
+    h += SUB("value");
     h += '<section class="card"><h2>Team value &amp; transfers</h2><p class="sub">Value = the seven current picks at ' + (M.priceRound > M.N ? "this week's" : "the latest") +
       ' prices; gain is against their first team. Changes = picks swapped between rounds (chips like Wildcard and Limitless count too).</p>';
     h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>Value</th><th>Gain</th><th>Changes</th><th>Per round</th></tr></thead><tbody>';
@@ -538,15 +571,19 @@
     // template
     var tD = M.drivers.filter(function (o) { return o.count; }).slice(0, 5), tC = M.constructors.filter(function (o) { return o.count; }).slice(0, 2);
     var tv = tD.concat(tC).reduce(function (s, o) { return s + (o.price || 0); }, 0);
+    h += SUB("template");
     h += '<section class="card"><div class="totw-h"><div><div class="k">Cost</div><div class="v">' + money(tv) + '</div></div><div class="ttl"><b>The league template</b><span>most-owned five drivers + two constructors</span></div><div class="r"><div class="k">Owned by</div><div class="v">' + n + "</div></div></div>" +
       teamGrid(tD, tC, function (o) { return { price: o.price, extra: o.count + "/" + n + " own" }; }) +
       '<p class="sub" style="margin:12px 0 0">Teams as F1 last published them (round ' + M.N + ") at " + weekPrices + " prices. Changes for the next race show once it's scored.</p></section>";
 
+    h += SUB("drivers");
     h += ownershipCard("Drivers", M.drivers, n);
+    h += SUB("constructors");
     h += ownershipCard("Constructors", M.constructors, n);
 
     // differentials
     var diffs = M.ownership.filter(function (o) { return o.count === 1; });
+    h += SUB("diffs");
     h += '<section class="card"><h2>Differentials</h2><p class="sub">Picks only one manager in the league owns.</p><div class="alist">' +
       (diffs.length ? diffs.map(function (o) {
         var m = o.owners[0];
@@ -555,6 +592,7 @@
 
     // season-long
     var season = M.ownership.filter(function (o) { return o.seasonCount; }).slice().sort(function (a, b) { return b.seasonPct - a.seasonPct; }).slice(0, 10);
+    h += SUB("trusted");
     h += '<section class="card"><h2>Most trusted this season</h2><p class="sub">Share of all manager-rounds a pick was in a team, rounds 1–' + M.N + '.</p><div class="alist">' +
       season.map(function (o) {
         return assetRow(o.id, '<b>' + fmt(o.seasonPct) + "%</b>", '<span class="minibar"><i style="width:' + o.seasonPct.toFixed(1) + '%"></i></span>');
@@ -730,8 +768,12 @@
     var hsh = (location.hash || "").replace(/^#/, "");
     var parts = hsh.split("/");
     var tab = TABS.indexOf(parts[0]) >= 0 ? parts[0] : "standings";
-    var moved = tab !== S.tab;
+    var keys = SUBS[tab].map(function (x) { return x[0]; });
+    var sub = keys.indexOf(parts[1]) >= 0 ? parts[1] : keys.indexOf(S.sub[tab]) >= 0 ? S.sub[tab] : keys[0];
+    var moved = tab !== S.tab || sub !== S.sub[tab];
     S.tab = tab;
+    S.sub[tab] = sub;
+    save("sub", S.sub);
     render();
     if (moved) window.scrollTo(0, 0);
   }
@@ -740,7 +782,13 @@
     renderChrome();
     var v = $("view");
     var fn = { standings: viewStandings, races: viewRaces, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
-    v.innerHTML = fn();
+    var cur = S.sub[S.tab] || SUBS[S.tab][0][0];
+    $("subtabs").innerHTML = SUBS[S.tab].map(function (x) {
+      return '<a href="#' + S.tab + "/" + x[0] + '" class="' + (x[0] === cur ? "on" : "") + '"' + (x[0] === cur ? ' aria-current="page"' : "") + ">" + esc(x[1]) + "</a>";
+    }).join("");
+    var on = $("subtabs").querySelector(".on");
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "center" });
+    v.innerHTML = pickSub(fn(), cur);
     hydrateCharts(v);
   }
   function hydrateCharts(root) {

@@ -616,3 +616,32 @@ tr:nth-child(3) .pos { color: #e0995a; }
 .result-f { text-align: center; color: var(--board-muted); font-size: 12px; padding-top: 10px; }
 .result-f a { color: var(--pts-hi); text-decoration: none; font-weight: 600; }
 .sheet .result { margin-top: 4px; }
+
+/* ---------- docked header + sub-tabs ---------- */
+:root { --topbar-h: 56px; }
+.topbar { position: sticky; top: 0; z-index: 30; padding: 0; }
+.topbar-inner {
+  max-width: none; margin: 0; border-radius: 0; border: 0; border-bottom: 1px solid var(--glass-line);
+  height: calc(var(--topbar-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+  background: var(--tabbar-bg);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+}
+.topbar-inner > * { max-width: 980px; }
+.pagetitle { margin-top: 14px; }
+.subtabs {
+  position: sticky; z-index: 25; top: calc(var(--topbar-h) + env(safe-area-inset-top));
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  max-width: 980px; margin: 10px auto 0; padding: 8px 16px;
+  background: var(--bg);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 16px), transparent);
+          mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 16px), transparent);
+}
+.subtabs::-webkit-scrollbar { display: none; }
+.subtabs:empty { display: none; }
+.subtabs a {
+  flex: none; text-decoration: none; padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 650;
+  color: var(--muted); background: var(--glass); border: 1px solid var(--glass-line); white-space: nowrap;
+}
+.subtabs a.on { color: #fff; background: var(--red); border-color: transparent; box-shadow: 0 3px 12px rgba(225, 6, 0, 0.35); }
+main { padding-top: 8px; }
