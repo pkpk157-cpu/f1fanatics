@@ -90,7 +90,8 @@ button { font: inherit; color: inherit; }
   background: var(--bg);
 }
 .brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.brand img { border-radius: 8px; flex: none; }
+.brand img { border-radius: 9px; flex: none; }
+.sheet .logo { display: block; width: 180px; max-width: 60%; margin: 0 auto 12px; border-radius: 16px; }
 .brand-name { font-weight: 750; font-size: 17px; letter-spacing: -0.01em; }
 .brand-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .iconbtn {

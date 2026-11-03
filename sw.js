@@ -8,11 +8,11 @@
    checked on every push: it changes when, and only when, the app does — not
    when the data updater publishes a new data.json. data.json is never cached
    here; app.js keeps its own last copy for offline. */
-const BUILD = "fc8c60feaaa1";
+const BUILD = "5634864a977b";
 const CACHE = "f1f-" + BUILD;
 const ASSETS = [
   "./index.html", "./styles.css", "./config.js", "./compute.js", "./app.js",
-  "./manifest.json", "./icon-192.png", "./favicon-64.png"
+  "./manifest.json", "./icon-192.png", "./favicon-64.png", "./logo.webp"
 ];
 
 self.addEventListener("install", (e) => {
