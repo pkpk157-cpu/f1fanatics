@@ -37,6 +37,9 @@
   }
   function signed(n, d) { if (n == null) return "–"; return (n > 0 ? "+" : n < 0 ? "−" : "±") + fmt(Math.abs(n), d); }
   function money(n) { return n == null ? "–" : "$" + fmt(n, 1) + "m"; }
+  // 1st gold, 2nd silver, 3rd bronze — everywhere a position is shown
+  function medal(n) { return n === 1 ? "m1" : n === 2 ? "m2" : n === 3 ? "m3" : ""; }
+  function ordM(n) { return n == null ? "–" : '<span class="t' + medal(n) + '">' + ordinal(n) + "</span>"; }
   function ordinal(n) { var s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   function when(iso, opts) {
     if (!iso) return "";
@@ -102,7 +105,7 @@
 
   /* F1-graphic standings row: red position, team-colour bar, red points block */
   function standRow(o) {
-    return '<div class="srow' + (o.me ? " me" : "") + (o.lead ? " lead" : "") + (o.color ? "" : " plain") + '"' + (o.attr || "") + (o.color ? ' style="' + tc(o.color) + '"' : "") + ">" +
+    return '<div class="srow' + (o.me ? " me" : "") + (o.lead ? " lead" : "") + (o.color ? "" : " plain") + (o.medal ? " " + medal(o.medal) : "") + '"' + (o.attr || "") + (o.color ? ' style="' + tc(o.color) + '"' : "") + ">" +
       '<div class="spos">' + esc(o.pos) + "</div>" +
       '<div class="sbar">' + (o.face || "") + '<div class="snm"><div class="sname">' + o.name + "</div>" + (o.sub ? '<div class="ssub">' + o.sub + "</div>" : "") + "</div></div>" +
       '<div class="spts"><span class="num">' + o.pts + "</span>" + (o.ptsSub ? "<small>" + o.ptsSub + "</small>" : "") + "</div></div>";
@@ -156,8 +159,9 @@
   function formChip(rank, n) {
     if (rank == null) return '<span style="background:var(--fill);color:var(--faint)">–</span>';
     var t = n > 1 ? (n - rank) / (n - 1) : 1;
-    // timing-screen colours: purple = won the round, green = top third, red = bottom third
-    var col = rank === 1 ? "var(--purple)" : t >= 0.67 ? "#1f9d47" : t <= 0.33 ? "#d6302a" : "var(--chip-mid)";
+    // gold / silver / bronze for a top-three finish, green = rest of the top third, red = bottom third
+    if (rank <= 3) return '<span class="chip-' + medal(rank) + '" title="' + ordinal(rank) + ' in the round">' + rank + "</span>";
+    var col = t >= 0.67 ? "#1f9d47" : t <= 0.33 ? "#d6302a" : "var(--chip-mid)";
     return '<span style="background:' + col + '" title="' + ordinal(rank) + ' in the round">' + rank + "</span>";
   }
   function moveCell(mv) {
@@ -247,7 +251,7 @@
     M.managers.forEach(function (m) {
       var mv = m.move > 0 ? '<span class="up">▲' + m.move + "</span>" : m.move < 0 ? '<span class="down">▼' + -m.move + "</span>" : "";
       h += standRow({
-        pos: m.rank, me: isMe(m), lead: m === M.leader, attr: ' data-m="' + esc(m.id) + '"',
+        pos: m.rank, medal: m.rank, me: isMe(m), lead: m === M.leader, attr: ' data-m="' + esc(m.id) + '"',
         name: managerName(m),
         sub: esc(m.team) + (lastInfo ? " · " + esc(abbr(lastInfo.short)) + " " + fmt(m.last) : "") + (mv ? " " + mv : ""),
         pts: fmt(m.total), ptsSub: m.gapLeader ? "−" + fmt(m.gapLeader) : ""
@@ -257,7 +261,7 @@
 
     // quick form glance
     h += SUB("form");
-    h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds, newest on the right. Purple = won the round, green = top third, red = bottom third.</p><div class="rows">';
+    h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds, newest on the right. Gold, silver, bronze = 1st, 2nd, 3rd in the round; green = rest of the top third; red = bottom third.</p><div class="rows">';
     M.managers.slice().sort(function (a, b) { return b.form5 - a.form5; }).forEach(function (m, i) {
       h += '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + (i + 1) + '</div><div class="main"><div class="n">' + esc(m.name) +
         '</div><div class="t">last 5 avg ' + fmt(m.form5) + " (" + signed(m.formVsAvg) + " vs season)" + '</div></div><div class="form">' +
@@ -280,7 +284,7 @@
     var card = function (m, place) {
       if (!m) return "";
       var n = lastFirst(m);
-      return '<div class="pod p' + place + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' +
+      return '<div class="pod p' + place + " " + medal(m.roundRank[r]) + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' +
         '<div class="pod-img"><span class="pod-num">' + m.roundRank[r] + "</span>" +
         '<span class="pod-pts"><b>' + fmt(m.pts[r]) + "</b>PTS</span></div>" +
         '<div class="pod-name">' + (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + '</b><span class="pt">' + esc(m.team) + "</span></div></div>";
@@ -308,7 +312,7 @@
     h += SUB("result");
     h += podiumHtml(S.podR, true);
     h += SUB("grid");
-    h += '<section class="card"><h2>Race by race</h2><p class="sub">Points each round. The brighter the red, the higher they finished in that round; gold outline = round winner.</p>';
+    h += '<section class="card"><h2>Race by race</h2><p class="sub">Points each round. The brighter the red, the higher they finished in that round; gold, silver and bronze outlines = 1st, 2nd and 3rd.</p>';
     h += '<div class="tblwrap"><table class="heat"><thead><tr><th class="l">Manager</th>';
     M.roundInfo.forEach(function (ri) { h += '<th class="rd" title="' + esc(ri.name) + '">' + esc(abbr(ri.short)) + "<br>" + ri.round + "</th>"; });
     h += '<th>Total</th></tr></thead><tbody>';
@@ -317,7 +321,8 @@
       M.roundInfo.forEach(function (ri) {
         var p = m.pts[ri.round];
         if (p == null) { h += '<td class="cell none" title="Not in the league yet">·</td>'; return; }
-        h += '<td class="cell' + (m.roundRank[ri.round] === 1 ? " win" : "") + '" style="' + heat(m.roundRank[ri.round], ri.count) + '" title="' +
+        var rr = m.roundRank[ri.round];
+        h += '<td class="cell' + (rr === 1 ? " win" : rr === 2 ? " sec" : rr === 3 ? " thi" : "") + '" style="' + heat(m.roundRank[ri.round], ri.count) + '" title="' +
           esc(m.name + " — " + ri.name + ": " + p + " pts, " + ordinal(m.roundRank[ri.round]) + " of " + ri.count) + '">' + fmt(p) + "</td>";
       });
       h += '<td class="tot">' + fmt(m.total) + "</td></tr>";
@@ -541,7 +546,7 @@
     h += '<section class="card"><h2>Highs &amp; lows in the table</h2><p class="sub">Best and worst league position after any round, and where they are now.</p>';
     h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>Now</th><th>Best</th><th>Worst</th><th>Last round</th></tr></thead><tbody>';
     M.managers.forEach(function (m) {
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) + '<td class="num">' + ordinal(m.rank) + '</td><td class="up">' + (m.bestRank ? ordinal(m.bestRank) : "–") +
+      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) + '<td class="num">' + ordM(m.rank) + '</td><td class="up">' + (m.bestRank ? ordinal(m.bestRank) : "–") +
         '</td><td class="down">' + (m.worstRank ? ordinal(m.worstRank) : "–") + "</td>" + moveCell(m.move) + "</tr>";
     });
     h += "</tbody></table></div></section>";
@@ -643,8 +648,8 @@
     M.rounds.slice().reverse().forEach(function (r) {
       var ri = M.roundInfo[r - 1];
       if (m.pts[r] == null) { h += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td colspan="5" class="muted c">not in the league yet</td></tr>'; return; }
-      h += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td class="num" style="' + heat(m.roundRank[r], ri.count) + '">' + fmt(m.pts[r]) + "</td><td>" + ordinal(m.roundRank[r]) +
-        "</td><td>" + (m.rankAt[r] ? ordinal(m.rankAt[r]) : "–") + "</td><td>" + money(m.teamValue[r]) + "</td><td>" + (m.transfers[r] == null ? "–" : m.transfers[r]) + "</td></tr>";
+      h += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td class="num" style="' + heat(m.roundRank[r], ri.count) + '">' + fmt(m.pts[r]) + "</td><td>" + ordM(m.roundRank[r]) +
+        "</td><td>" + ordM(m.rankAt[r]) + "</td><td>" + money(m.teamValue[r]) + "</td><td>" + (m.transfers[r] == null ? "–" : m.transfers[r]) + "</td></tr>";
     });
     h += "</tbody></table></div></section>";
     openSheet(h);

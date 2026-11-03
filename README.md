@@ -33,7 +33,9 @@ Standings and round winners are drawn like F1's broadcast standings graphic:
 red position numbers, a bar in team colours, and the points in a red block
 (gold for the leader). Round results are a podium (2–1–3) plus the rest of
 the field, like F1's race-result graphic. Pictures are used for drivers and
-constructors only, never for managers. All of it has light and dark versions. Teams are shown as cards in the
+constructors only, never for managers. **1st is always gold, 2nd silver,
+3rd bronze**: standings, podiums, form chips, race-grid outlines, ranked
+lists and tables (`--p1`/`--p2`/`--p3` in `styles.css`). All of it has light and dark versions. Teams are shown as cards in the
 style of F1 Fantasy's team builder and Team of the Week. Each round's page
 has a **Dream team**: the best five drivers and two constructors of that
 round, with the top driver boosted 2× and no cost cap.

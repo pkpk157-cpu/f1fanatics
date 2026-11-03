@@ -421,6 +421,11 @@ tr:nth-child(3) .pos { color: #e0995a; }
 @font-face { font-family: "F1F Display"; src: url("fonts/titillium-900.woff2") format("woff2"); font-weight: 900; font-display: swap; }
 @font-face { font-family: "F1F Display"; src: url("fonts/titillium-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
 :root {
+  /* positions: 1st gold, 2nd silver, 3rd bronze — everywhere */
+  --p1: #f2c94c; --p2: #d3d6dc; --p3: #d08a4a;
+  --p1-grad: linear-gradient(180deg, #fbe7a1, #e2b33c 50%, #a97a16);
+  --p2-grad: linear-gradient(180deg, #ffffff, #c9ccd3 50%, #8d9199);
+  --p3-grad: linear-gradient(180deg, #f3c49a, #c9803f 50%, #8a4f1d);
   --display: "F1F Display", var(--font); --lime: #d9f15d; --lime-ink: #101205;
   --gold-num: linear-gradient(180deg, #f6e3a1, #c9a24a 55%, #a07c2a);
   /* broadcast boards (standings, round results) */
@@ -434,6 +439,10 @@ tr:nth-child(3) .pos { color: #e0995a; }
   --board: #ffffff; --board-fg: #111114; --board-muted: rgba(60,60,67,.7);
   --bar: #f3f3f6; --bar-alt: #e9e9ee; --bar-fg: #111114;
   --pts-hi: #4d6400; --stripe-tex: rgba(0,0,0,.025);
+  --p1: #b8860b; --p2: #7d828c; --p3: #a3602a;
+  --p1-grad: linear-gradient(180deg, #e0b23a, #a87b18 60%, #7a5608);
+  --p2-grad: linear-gradient(180deg, #a3a8b1, #6e737c 60%, #4a4e55);
+  --p3-grad: linear-gradient(180deg, #d08a4a, #a3602a 60%, #6e3c13);
   --pod-bg: linear-gradient(165deg, #f4f4f7, #dcdce3); --pod-fg: #111114; --pts-box: #111114;
   --gold-num: linear-gradient(180deg, #e2b84a, #a87b18);
 }
@@ -441,6 +450,10 @@ tr:nth-child(3) .pos { color: #e0995a; }
   --board: #ffffff; --board-fg: #111114; --board-muted: rgba(60,60,67,.7);
   --bar: #f3f3f6; --bar-alt: #e9e9ee; --bar-fg: #111114;
   --pts-hi: #4d6400; --stripe-tex: rgba(0,0,0,.025);
+  --p1: #b8860b; --p2: #7d828c; --p3: #a3602a;
+  --p1-grad: linear-gradient(180deg, #e0b23a, #a87b18 60%, #7a5608);
+  --p2-grad: linear-gradient(180deg, #a3a8b1, #6e737c 60%, #4a4e55);
+  --p3-grad: linear-gradient(180deg, #d08a4a, #a3602a 60%, #6e3c13);
   --pod-bg: linear-gradient(165deg, #f4f4f7, #dcdce3); --pod-fg: #111114; --pts-box: #111114;
   --gold-num: linear-gradient(180deg, #e2b84a, #a87b18);
 } }
@@ -645,3 +658,29 @@ tr:nth-child(3) .pos { color: #e0995a; }
 }
 .subtabs a.on { color: #fff; background: var(--red); border-color: transparent; box-shadow: 0 3px 12px rgba(225, 6, 0, 0.35); }
 main { padding-top: 8px; }
+
+/* ---------- gold / silver / bronze ---------- */
+.tm1 { color: var(--p1); font-weight: 800; }
+.tm2 { color: var(--p2); font-weight: 800; }
+.tm3 { color: var(--p3); font-weight: 800; }
+.srow.m1 .spos, .srow.m2 .spos, .srow.m3 .spos { -webkit-text-stroke: 0; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; }
+.srow.m1 .spos { background-image: var(--p1-grad); }
+.srow.m2 .spos { background-image: var(--p2-grad); }
+.srow.m3 .spos { background-image: var(--p3-grad); }
+.srow.lead .spts .num { background-image: var(--p1-grad); }
+.pod .pod-num { -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; }
+.pod.m1 .pod-num { background-image: var(--p1-grad); }
+.pod.m2 .pod-num { background-image: var(--p2-grad); }
+.pod.m3 .pod-num { background-image: var(--p3-grad); }
+.pod.m1 .pod-img { border-top-color: var(--p1); }
+.pod.m2 .pod-img { border-top-color: var(--p2); }
+.pod.m3 .pod-img { border-top-color: var(--p3); }
+.form .chip-m1 { background: var(--p1-grad); color: #3a2900; }
+.form .chip-m2 { background: var(--p2-grad); color: #23262c; }
+.form .chip-m3 { background: var(--p3-grad); color: #2e1606; }
+.heat td.cell.win { box-shadow: inset 0 0 0 2px var(--p1); }
+.heat td.cell.sec { box-shadow: inset 0 0 0 2px var(--p2); }
+.heat td.cell.thi { box-shadow: inset 0 0 0 2px var(--p3); }
+.rows .row:nth-child(1) .rk { color: var(--p1); }
+.rows .row:nth-child(2) .rk { color: var(--p2); }
+.rows .row:nth-child(3) .rk { color: var(--p3); }
