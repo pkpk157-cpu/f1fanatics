@@ -959,7 +959,8 @@
     var v = $("view");
     var fn = { league: function () { return viewStandings() + viewRaces() + viewPrizes(); }, you: viewYou, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
     var cur = S.sub[S.tab] || SUBS[S.tab][0][0];
-    $("subtabs").innerHTML = SUBS[S.tab].map(function (x) {
+    // Stats is reached from the menu, which lists every section, so no pill row there
+    $("subtabs").innerHTML = S.tab === "stats" ? "" : SUBS[S.tab].map(function (x) {
       return '<a href="#' + S.tab + "/" + x[0] + '" class="' + (x[0] === cur ? "on" : "") + '"' + (x[0] === cur ? ' aria-current="page"' : "") + ">" + esc(x[1]) + "</a>";
     }).join("");
     var on = $("subtabs").querySelector(".on");
