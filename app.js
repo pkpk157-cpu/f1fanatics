@@ -26,7 +26,7 @@
   }
   var REFRESH_MS = 5 * 60 * 1000;
 
-  var S = { data: null, model: null, me: load("me"), focus: null, tab: "league", sub: load("sub") || {}, fetchedAt: 0 };
+  var S = { data: null, model: null, me: load("me"), hl: null, tab: "league", sub: load("sub") || {}, fetchedAt: 0 };
 
   /* ---------------- small helpers ---------------- */
   function load(k) { try { return JSON.parse(localStorage.getItem("f1f." + k)); } catch (e) { return null; } }
@@ -393,23 +393,32 @@
   }
 
   function viewTrends() {
-    var card = function (k) { return SUB(k) + '<section class="card"><div class="chartbox" data-chart="' + k + '"></div>' + keyHtml() + "</section>" + chipsHtml(); };
+    var card = function (k) { return SUB(k) + '<section class="card"><div class="chartbox" data-chart="' + k + '"></div></section>' + chipsHtml(); };
     return card("rank") + card("total") + card("gap");
   }
-  function chipsHtml() {
+  // Highlighted lines: the leader and you to start with; tap names (or a line) to add or remove, "All" for everyone.
+  var HL_COLORS = ["#ff453a", "#ff9f0a", "#30d158", "#bf5af2", "#ff6fae", "#5e5ce6", "#c69c6d", "#00c7be", "#9be15d", "#ffb38a"];
+  function hlSet() {
     var M = S.model;
-    return '<div class="chips quiet">' + M.managers.map(function (m) {
-      var cls = m.id === S.focus ? " on" : isMe(m) ? " me" : m === M.leader ? " lead" : "";
-      return '<button class="chip' + cls + '" data-focus="' + esc(m.id) + '">' + esc(firstName(m)) + "</button>";
-    }).join("") + "</div>";
+    if (!S.hl) S.hl = [M.leader.id].concat(S.me && byId(S.me) && S.me !== M.leader.id ? [S.me] : []);
+    return S.hl;
   }
-  function keyHtml() {
-    var M = S.model, k = [];
-    k.push('<span><i style="background:var(--gold)"></i>' + esc(M.leader.name) + "</span>");
-    if (S.me && S.me !== M.leader.id) k.push('<span><i style="background:var(--me)"></i>' + esc(byId(S.me).name) + "</span>");
-    if (S.focus && S.focus !== S.me && S.focus !== M.leader.id) k.push('<span><i style="background:var(--accent)"></i>' + esc(byId(S.focus).name) + "</span>");
-    k.push('<span><i style="background:var(--series-muted)"></i>everyone else</span>');
-    return '<div class="key">' + k.join("") + "</div>";
+  function lineColor(id) {
+    var M = S.model;
+    if (id === M.leader.id) return "var(--gold)";
+    if (id === S.me) return "var(--me)";
+    var others = M.managers.filter(function (m) { return m.id !== M.leader.id && m.id !== S.me; });
+    var i = others.findIndex(function (m) { return m.id === id; });
+    return HL_COLORS[(i < 0 ? 0 : i) % HL_COLORS.length];
+  }
+  function chipsHtml() {
+    var M = S.model, hl = hlSet();
+    var all = hl.length === M.managers.length;
+    return '<div class="chips quiet"><button class="chip all' + (all ? " on" : "") + '" data-hl-all>All</button>' + M.managers.map(function (m) {
+      var on = hl.indexOf(m.id) >= 0;
+      return '<button class="chip' + (on ? " hl" : "") + '" data-focus="' + esc(m.id) + '"' + (on ? ' style="--c:' + lineColor(m.id) + '"' : "") + ">" +
+        (on ? "<i></i>" : "") + esc(firstName(m)) + "</button>";
+    }).join("") + "</div>";
   }
 
   function chartSeries(kind, only) {
@@ -451,14 +460,10 @@
     else if (kind === "gap" || kind === "total") { lo = 0; hi = niceMax(Math.max.apply(null, all)); }
     else { lo = niceMin(Math.min.apply(null, all)); hi = niceMax(Math.max.apply(null, all)); }
     if (hi === lo) hi = lo + 1;
-    var axisW = 40, xH = 24, baseH = 224, padL = 16, padR = 116, padT = 12, padB = 10, step = 38;
-    var role = function (s) {
-      if (s.id === S.focus) return "focus";
-      if (s.id === S.me) return "mine";
-      if (s.id === M.leader.id) return "lead";
-      return "";
-    };
-    var order = series.slice().sort(function (a, b) { return (role(a) ? 1 : 0) - (role(b) ? 1 : 0) || (role(a) === "focus") - (role(b) === "focus"); });
+    var axisW = 40, xH = 46, baseH = 224, padL = 14, padR = 126, padT = 12, padB = 10, maxStep = 120;
+    var hl = hlSet();
+    var on = function (s) { return hl.indexOf(s.id) >= 0; };
+    var order = series.slice().sort(function (a, b) { return on(a) - on(b) || (a.id === S.me) - (b.id === S.me); });
     var tickLabel = function (t) { return kind === "total" && t >= 1000 ? fmt(t / 1000, t % 1000 ? 1 : 0) + "k" : fmt(t); };
 
     box.innerHTML = '<div class="cz"><div class="cz-y"><div class="cz-yi"></div></div><div class="cz-plot"></div><div class="cz-corner"></div><div class="cz-x"><div class="cz-xi"></div></div>' +
@@ -466,13 +471,18 @@
     var plot = box.querySelector(".cz-plot"), yi = box.querySelector(".cz-yi"), xi = box.querySelector(".cz-xi");
     var geo = null;
 
+    // fully zoomed out (z = 1) every round fits the width; zooming in spreads them up to maxStep apart
+    var avail = Math.max(200, plot.clientWidth || 300);
+    var fitStep = rounds.length > 1 ? (avail - padL - padR) / (rounds.length - 1) : maxStep;
+    var zMax = Math.max(Z_MAX, maxStep / fitStep);
     function draw(z) {
-      var avail = Math.max(240, plot.clientWidth || 300);
-      var W = Math.max(avail, padL + padR + (rounds.length - 1) * step * z), H = Math.round(baseH * z);
+      var zy = 1 + (z - 1) * (Z_MAX - 1) / (zMax - 1 || 1);
+      var step = fitStep * z;
+      var W = Math.max(avail, padL + padR + (rounds.length - 1) * step), H = Math.round(baseH * zy);
       var x = function (r) { return padL + (rounds.length === 1 ? 0 : (r - rounds[0]) / (rounds[rounds.length - 1] - rounds[0]) * (W - padL - padR)); };
       var y = function (v) { var t = (v - lo) / (hi - lo); return invert ? padT + t * (H - padT - padB) : H - padB - t * (H - padT - padB); };
-      var nT = Math.max(4, Math.round(5 * z));
-      var ticks = kind === "rank" ? M.managers.map(function (m, i) { return i + 1; }).filter(function (v) { return z > 1.3 || M.managers.length <= 12 || v === 1 || v % 2 === 0; }) : niceTicks(lo, hi, nT);
+      var nT = Math.max(4, Math.round(5 * zy));
+      var ticks = kind === "rank" ? M.managers.map(function (m, i) { return i + 1; }).filter(function (v) { return zy > 1.3 || M.managers.length <= 12 || v === 1 || v % 2 === 0; }) : niceTicks(lo, hi, nT);
       var g = '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="' + esc(opts.label || kind) + '"><g class="grid">';
       ticks.forEach(function (t) { g += '<line x1="0" x2="' + (W - padR) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>'; });
       g += "</g>";
@@ -484,14 +494,13 @@
           else cur.push([x(r), y(s.vals[r])]);
         });
         if (cur.length) segs.push(cur);
-        var d = segs.map(pathOf).join(" "), cls = role(s);
-        g += '<path class="series ' + cls + '" d="' + d + '"/><path class="hit" d="' + d + '" data-focus="' + esc(s.id) + '"><title>' + esc(s.label) + "</title></path>";
-        if (cls) {
+        var d = segs.map(pathOf).join(" "), lit = on(s), col = lit ? lineColor(s.id) : "";
+        g += '<path class="series' + (lit ? " hl" : "") + '" d="' + d + '"' + (lit ? ' style="stroke:' + col + '"' : "") + '/><path class="hit" d="' + d + '" data-focus="' + esc(s.id) + '"><title>' + esc(s.label) + "</title></path>";
+        if (lit) {
           var lastR = null; rounds.forEach(function (r) { if (s.vals[r] != null) lastR = r; });
           if (lastR != null) {
-            var col = cls === "focus" ? "var(--accent)" : cls === "mine" ? "var(--me)" : "var(--gold)";
             g += '<circle class="dot" cx="' + x(lastR) + '" cy="' + y(s.vals[lastR]) + '" r="3.5" stroke="' + col + '"/>';
-            labels.push({ y: y(s.vals[lastR]), x: x(lastR) + 8, text: shortName(s.label) + " " + valLabel(kind, s.vals[lastR]), col: col });
+            labels.push({ y: y(s.vals[lastR]), x: x(lastR) + 8, text: firstName(byId(s.id)) + " " + valLabel(kind, s.vals[lastR]), col: col });
           }
         }
       });
@@ -501,11 +510,17 @@
       plot.innerHTML = g + "</svg>";
       yi.innerHTML = '<svg class="chart" viewBox="0 0 ' + axisW + " " + H + '" width="' + axisW + '" height="' + H + '" aria-hidden="true"><g class="axis">' +
         ticks.map(function (t) { return '<text x="' + (axisW - 6) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + tickLabel(t) + "</text>"; }).join("") + "</g></svg>";
-      xi.innerHTML = '<svg class="chart" viewBox="0 0 ' + W + " " + xH + '" width="' + W + '" height="' + xH + '" aria-hidden="true"><g class="axis">' +
-        rounds.map(function (r) { return '<text x="' + x(r) + '" y="' + (xH - 8) + '" text-anchor="middle">' + esc(abbr(roundName(r))) + "</text>"; }).join("") + "</g></svg>";
+      var vert = step < 34;
+      xi.innerHTML = '<svg class="chart" viewBox="0 0 ' + W + " " + xH + '" width="' + W + '" height="' + xH + '" aria-hidden="true"><g class="axis xr">' +
+        rounds.map(function (r) {
+          var gp = esc(abbr(roundName(r)));
+          return vert
+            ? '<text transform="translate(' + (x(r) - 3.5).toFixed(1) + ' 4) rotate(90)"><tspan class="rn">' + r + "</tspan> " + gp + "</text>"
+            : '<text x="' + x(r) + '" y="15" text-anchor="middle" class="rn">' + r + '</text><text x="' + x(r) + '" y="30" text-anchor="middle">' + gp + "</text>";
+        }).join("") + "</g></svg>";
       geo = { W: W, H: H, z: z };
       box.querySelector('[data-zoom="out"]').disabled = z <= 1.001;
-      box.querySelector('[data-zoom="in"]').disabled = z >= Z_MAX - 0.001;
+      box.querySelector('[data-zoom="in"]').disabled = z >= zMax - 0.001;
     }
     function sync() {
       yi.style.transform = "translateY(" + -plot.scrollTop + "px)";
@@ -514,7 +529,7 @@
     }
     // zoom to z, keeping the point at (fx, fy) in the visible plot where it is
     function zoomTo(z, fx, fy) {
-      z = Math.max(1, Math.min(Z_MAX, z));
+      z = Math.max(1, Math.min(zMax, z));
       if (geo && Math.abs(z - geo.z) < 0.001) return;
       var old = geo, cx = plot.scrollLeft + fx, cy = plot.scrollTop + fy;
       draw(z);
@@ -526,7 +541,7 @@
       sync();
     }
 
-    draw(chartZoom[kind] || 1);
+    draw(Math.min(zMax, chartZoom[kind] || 1));
     var saved = chartScroll[kind];
     plot.scrollLeft = saved ? saved.l : plot.scrollWidth;
     plot.scrollTop = saved ? saved.t : 0;
@@ -965,6 +980,12 @@
     }
     var link = e.target.closest("#drawer a[data-close]");
     if (link) { closeDrawer(); return; } // the link itself navigates
+    if (e.target.closest("[data-hl-all]")) {
+      var M0 = S.model;
+      S.hl = hlSet().length === M0.managers.length ? null : M0.managers.map(function (m) { return m.id; });
+      if (S.tab === "trends") { var y0 = window.scrollY; render(); window.scrollTo(0, y0); }
+      return;
+    }
     var t = e.target.closest("[data-focus],[data-m],[data-r],[data-a],[data-theme-set],[data-open],[data-round-nav]");
     if (!t) return;
     if (t.hasAttribute("data-round-nav")) {
@@ -986,8 +1007,8 @@
       return;
     }
     if (t.hasAttribute("data-focus")) {
-      var id = t.getAttribute("data-focus");
-      S.focus = S.focus === id ? null : id;
+      var id = t.getAttribute("data-focus"), hl = hlSet(), i = hl.indexOf(id);
+      if (i >= 0) hl.splice(i, 1); else hl.push(id);
       if (S.tab === "trends") { var y = window.scrollY; render(); window.scrollTo(0, y); }
       return;
     }

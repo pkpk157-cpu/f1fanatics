@@ -295,6 +295,12 @@ tr:nth-child(3) .pos { color: #e0995a; }
 .chart .series.focus { stroke: var(--accent); stroke-width: 2.8; filter: drop-shadow(0 0 6px rgba(255, 45, 38, 0.6)); }
 .chart .series.mine { stroke: var(--me); stroke-width: 2.6; }
 .chart .series.lead { stroke: var(--gold); stroke-width: 2.2; }
+.chart .series.hl { stroke-width: 2.4; }
+.chart .axis.xr text { font-size: 10px; }
+.chart .axis.xr .rn { fill: var(--accent); font-weight: 700; }
+.chip.hl { color: var(--text); border-color: var(--c); }
+.chip.hl i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 6px; vertical-align: 0; }
+.chip.all.on { color: #fff; background: rgba(225, 6, 0, 0.45); border-color: rgba(255, 80, 70, 0.6); }
 .chart .hit { fill: none; stroke: transparent; stroke-width: 12; cursor: pointer; }
 .chart .dot { fill: var(--bg); stroke-width: 2; }
 .chart .endlabel { font-size: 11.5px; font-weight: 700; }
@@ -838,7 +844,7 @@ main .board-h { padding-bottom: 14px; }
 .card + .chips.quiet { margin-top: -2px; }
 
 /* zoomable charts: y axis | plot (scrolls both ways) / corner | x axis */
-.cz { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: 32px 224px 24px; margin: -4px -6px 0 -8px; }
+.cz { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: 32px 224px 46px; margin: -4px -6px 0 -8px; }
 .cz-y, .cz-x { overflow: hidden; position: relative; }
 .cz-yi, .cz-xi { will-change: transform; }
 .cz-plot { overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
