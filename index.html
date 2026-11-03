@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>F1 Fanatics — League Tracker</title>
+<meta name="description" content="Standings and stats for the F1 Fanatics F1 Fantasy league: race-by-race scores, rank movement, form, team value and ownership." />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#f4f4f6" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#111216" media="(prefers-color-scheme: dark)" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="F1 Fanatics" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" href="favicon-64.png" type="image/png" sizes="64x64" />
+<link rel="icon" href="icon-192.png" type="image/png" sizes="192x192" />
+<script>
+  /* the saved theme, before first paint */
+  (function () {
+    try {
+      var t = localStorage.getItem("f1f.theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button class="iconbtn" id="backBtn" aria-label="Back" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+    </button>
+    <div class="brand">
+      <img src="icon-192.png" alt="" width="28" height="28" />
+      <div>
+        <div class="brand-name" id="leagueName">F1 Fanatics</div>
+        <div class="brand-sub" id="subline">Loading…</div>
+      </div>
+    </div>
+    <button class="iconbtn" id="meBtn" aria-label="Choose your team" title="Choose your team">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
+    </button>
+    <button class="iconbtn" id="themeBtn" aria-label="Switch light or dark" title="Light / dark">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" /></svg>
+    </button>
+    <button class="iconbtn" id="infoBtn" aria-label="About the data" title="About the data">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
+    </button>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Sections">
+    <a href="#standings" data-tab="standings">Standings</a>
+    <a href="#races" data-tab="races">Races</a>
+    <a href="#trends" data-tab="trends">Trends</a>
+    <a href="#stats" data-tab="stats">Stats</a>
+    <a href="#picks" data-tab="picks">Picks</a>
+  </nav>
+
+  <div id="banner" class="banner" hidden></div>
+  <main id="view" aria-live="polite"><div class="loading">Loading the league…</div></main>
+
+  <dialog id="sheet" class="sheet">
+    <div class="sheet-inner">
+      <button class="iconbtn sheet-close" id="sheetClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+      <div id="sheetBody"></div>
+    </div>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="compute.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

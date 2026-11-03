@@ -1,0 +1,343 @@
+/* F1 Fanatics — every number the app shows, derived from data.json.
+
+   One primitive drives everything: each manager's points in each round
+   (list_2 is per-race, NOT a running total — checked against list_1 when the
+   project started: the 19 rounds summed to list_1's total for every manager
+   with a full history). Standings, rank by round, form, records, team value
+   and ownership all come out of that plus the picks and prices.
+
+   Loads in the browser (window.F1F) and in Node (require), so the runner's
+   verify step and the app agree on every figure by construction. */
+(function (root) {
+  "use strict";
+
+  function num(x) { var n = Number(x); return isFinite(n) ? n : null; }
+  function round1(x) { return Math.round(x * 10) / 10; }
+  function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
+  function mean(a) { return a.length ? sum(a) / a.length : null; }
+  function median(a) {
+    if (!a.length) return null;
+    var s = a.slice().sort(function (x, y) { return x - y; });
+    var m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  function stdev(a) {
+    if (a.length < 2) return null;
+    var m = mean(a), v = 0;
+    for (var i = 0; i < a.length; i++) v += (a[i] - m) * (a[i] - m);
+    return Math.sqrt(v / (a.length - 1));
+  }
+  // Competition ranking ("1224"): equal scores share a rank.
+  function rankBy(items, key) {
+    var s = items.slice().sort(function (a, b) { return key(b) - key(a); });
+    var out = new Map(), prev = null, rank = 0;
+    s.forEach(function (it, i) {
+      var k = key(it);
+      if (k !== prev) { rank = i + 1; prev = k; }
+      out.set(it, rank);
+    });
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Reconciliation: list_1 totals against the per-round list_2 scores. */
+  /* ------------------------------------------------------------------ */
+
+  // How list_1 (standings) and list_2 (rounds) line up right now. F1 does not
+  // publish both at the same instant after a race, so for a few minutes one
+  // can be a round ahead of the other. Managers with a complete round history
+  // decide it; a manager who joined late has points from before joining that
+  // the league feed never shows, so they cannot.
+  function reconcile(data) {
+    var N = data.roundsPlayed || 0;
+    var full = data.managers.filter(function (m) {
+      for (var r = 1; r <= N; r++) if (!m.rounds[r]) return false;
+      return true;
+    });
+    function sumTo(m, n) { var s = 0; for (var r = 1; r <= n; r++) s += m.rounds[r] ? m.rounds[r].pts : 0; return s; }
+    if (!full.length || !N) return { state: "ok", full: full.length, lagRound: null };
+    var allMatch = full.every(function (m) { return Math.abs(sumTo(m, N) - m.total) < 0.01; });
+    if (allMatch) return { state: "ok", full: full.length, lagRound: null };
+    var behind = N > 1 && full.every(function (m) { return Math.abs(sumTo(m, N - 1) - m.total) < 0.01; });
+    if (behind) return { state: "standings-behind", full: full.length, lagRound: N };
+    // The next round has been raced and the standings already count it.
+    var nextRaced = (data.schedule || []).some(function (s) {
+      return s.round === N + 1 && s.race && Date.parse(s.race) < Date.parse(data.generatedAt);
+    });
+    if (nextRaced) return { state: "rounds-behind", full: full.length, lagRound: N + 1 };
+    return { state: "mismatch", full: full.length, lagRound: null };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Checks. Run by scripts/verify-data.js on every update, embedded in  */
+  /* data.json, and shown in the app's About sheet.                      */
+  /* ------------------------------------------------------------------ */
+  function verify(data) {
+    var errors = [], warnings = [], notes = [];
+    if (!data || !Array.isArray(data.managers) || !data.managers.length) {
+      errors.push("no managers in the standings");
+      return { ok: false, errors: errors, warnings: warnings, notes: notes };
+    }
+    var N = data.roundsPlayed || 0;
+    var assets = data.assets || {};
+
+    // standings order agrees with totals
+    var byRank = data.managers.slice().sort(function (a, b) { return a.rank - b.rank; });
+    for (var i = 1; i < byRank.length; i++) {
+      if (byRank[i].total > byRank[i - 1].total + 0.001)
+        errors.push("rank " + byRank[i].rank + " (" + byRank[i].name + ") has more points than rank " + byRank[i - 1].rank);
+    }
+    var ids = new Set();
+    data.managers.forEach(function (m) {
+      if (ids.has(m.id)) errors.push("manager " + m.id + " appears twice");
+      ids.add(m.id);
+    });
+
+    // rounds are contiguous and every manager present in a round is in the standings
+    for (var r = 1; r <= N; r++) {
+      var present = data.managers.filter(function (m) { return m.rounds[r]; }).length;
+      if (!present) errors.push("round " + r + " has no scores");
+    }
+
+    // per-manager reconciliation
+    var rec = reconcile(data);
+    data.managers.forEach(function (m) {
+      var known = 0, missing = [];
+      for (var r = 1; r <= N; r++) { if (m.rounds[r]) known += m.rounds[r].pts; else missing.push(r); }
+      var diff = Math.round((m.total - known) * 100) / 100;
+      if (!missing.length) {
+        if (diff !== 0 && rec.state === "ok") warnings.push(m.name + ": rounds 1–" + N + " sum to " + known + " but the standings say " + m.total);
+      } else {
+        notes.push(m.name + " is missing from round" + (missing.length > 1 ? "s " : " ") + missing.join(", ") +
+          " of the league feed (joined the league later); " + diff + " points from before then are counted in their total");
+      }
+      // picks resolve and have the right shape
+      var team = m.picks || [];
+      var d = 0, c = 0;
+      team.forEach(function (id) {
+        var a = assets[id];
+        if (!a) warnings.push(m.name + ": pick " + id + " is not in the drivers feed");
+        else if (a.type === "D") d++; else c++;
+      });
+      if (team.length && (d !== 5 || c !== 2)) warnings.push(m.name + ": current team has " + d + " drivers and " + c + " constructors");
+    });
+    if (rec.state === "standings-behind") warnings.push("round " + N + " scores are out but the standings have not caught up yet; totals shown include round " + N);
+    if (rec.state === "rounds-behind") warnings.push("the standings include round " + (N + 1) + " but its per-round scores are not published yet");
+    if (rec.state === "mismatch") warnings.push("standings totals and per-round scores disagree for some managers");
+
+    // prices for every round played
+    for (var p = 1; p <= N; p++) if (!data.prices || !data.prices[p]) warnings.push("no prices for round " + p);
+
+    // the schedule agrees about what has been raced
+    (data.schedule || []).forEach(function (s) {
+      if (s.round > N && s.race && Date.parse(s.race) + 6 * 3600e3 < Date.parse(data.generatedAt))
+        notes.push("round " + s.round + " (" + s.name + ") has been raced but F1 has not published its league scores yet");
+    });
+
+    return { ok: !errors.length, errors: errors, warnings: warnings, notes: notes, sync: rec.state };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* The model the app renders.                                          */
+  /* ------------------------------------------------------------------ */
+  function build(data) {
+    var N = data.roundsPlayed || 0;
+    var rounds = [];
+    for (var r = 1; r <= N; r++) rounds.push(r);
+    var sched = {};
+    (data.schedule || []).forEach(function (s) { sched[s.round] = s; });
+    var rec = reconcile(data);
+    var assets = data.assets || {};
+    var priceRounds = Object.keys(data.prices || {}).map(Number).sort(function (a, b) { return a - b; });
+    var latestPriceRound = priceRounds.length ? priceRounds[priceRounds.length - 1] : null;
+
+    var managers = data.managers.map(function (src) {
+      var m = {
+        id: src.id, name: src.name, team: src.team, picks: (src.picks || []).slice(),
+        feedRank: src.rank, feedTotal: src.total,
+        pts: {}, team_: {}, cum: {}, rankAt: {}, roundRank: {}, teamValue: {}, transfers: {}
+      };
+      var known = 0, lastMissing = 0;
+      rounds.forEach(function (r) {
+        var x = src.rounds[r];
+        if (x) { m.pts[r] = x.pts; m.team_[r] = x.team || []; known += x.pts; }
+        else { m.pts[r] = null; lastMissing = r; }
+      });
+      // Totals: list_1, plus the newest round if the standings are a round behind.
+      m.total = src.total + (rec.state === "standings-behind" && m.pts[N] != null ? m.pts[N] : 0);
+      m.joinRound = null;
+      rounds.forEach(function (r) { if (m.joinRound == null && m.pts[r] != null) m.joinRound = r; });
+      m.preJoin = lastMissing ? Math.round((m.total - known) * 100) / 100 : 0;
+      // Cumulative total after each round. Without gaps, a running sum. With
+      // gaps (joined late), counted back from the total, which is exact for
+      // every round after the last gap and unknowable before it.
+      if (!lastMissing) {
+        var run = 0;
+        rounds.forEach(function (r) { run += m.pts[r]; m.cum[r] = run; });
+      } else {
+        var after = 0;
+        for (var k = N; k >= 1; k--) {
+          m.cum[k] = k >= lastMissing ? m.total - after : null;
+          if (m.pts[k] != null) after += m.pts[k];
+        }
+      }
+      return m;
+    });
+
+    // league rank after each round, and rank within the round
+    rounds.forEach(function (r) {
+      var withCum = managers.filter(function (m) { return m.cum[r] != null; });
+      var rk = rankBy(withCum, function (m) { return m.cum[r]; });
+      managers.forEach(function (m) { m.rankAt[r] = rk.has(m) ? rk.get(m) : null; });
+      var played = managers.filter(function (m) { return m.pts[r] != null; });
+      var rr = rankBy(played, function (m) { return m.pts[r]; });
+      managers.forEach(function (m) { m.roundRank[r] = rr.has(m) ? rr.get(m) : null; });
+    });
+
+    // final standings: by total, ties share a rank
+    var finalRank = rankBy(managers, function (m) { return m.total; });
+    managers.forEach(function (m) { m.rank = finalRank.get(m); });
+    managers.sort(function (a, b) { return a.rank - b.rank || a.name.localeCompare(b.name); });
+    var leader = managers[0];
+
+    managers.forEach(function (m, i) {
+      var played = rounds.filter(function (r) { return m.pts[r] != null; });
+      var vals = played.map(function (r) { return m.pts[r]; });
+      m.played = played.length;
+      m.avg = mean(vals);
+      m.median = median(vals);
+      m.sd = stdev(vals);
+      m.last = N ? m.pts[N] : null;
+      m.gapLeader = leader.total - m.total;
+      m.gapAbove = i > 0 ? managers[i - 1].total - m.total : null;
+      m.gapBelow = i < managers.length - 1 ? m.total - managers[i + 1].total : null;
+      var best = null, worst = null;
+      played.forEach(function (r) {
+        if (!best || m.pts[r] > best.pts) best = { round: r, pts: m.pts[r] };
+        if (!worst || m.pts[r] < worst.pts) worst = { round: r, pts: m.pts[r] };
+      });
+      m.best = best; m.worst = worst;
+      m.wins = played.filter(function (r) { return m.roundRank[r] === 1; }).length;
+      m.podiums = played.filter(function (r) { return m.roundRank[r] <= 3; }).length;
+      m.lastPlace = played.filter(function (r) {
+        var n = managers.filter(function (x) { return x.pts[r] != null; }).length;
+        return n > 1 && m.roundRank[r] === n;
+      }).length;
+      var l3 = played.slice(-3).map(function (r) { return m.pts[r]; });
+      var l5 = played.slice(-5).map(function (r) { return m.pts[r]; });
+      m.form3 = mean(l3);
+      m.form5 = mean(l5);
+      m.formVsAvg = m.form5 != null && m.avg != null ? m.form5 - m.avg : null;
+      m.formRanks = played.slice(-5).map(function (r) { return m.roundRank[r]; });
+      // rank movement over the last round: positive = climbed
+      var prev = N > 1 ? m.rankAt[N - 1] : null;
+      m.move = prev != null && m.rankAt[N] != null ? prev - m.rankAt[N] : null;
+      var ranks = rounds.map(function (r) { return m.rankAt[r]; }).filter(function (x) { return x != null; });
+      m.bestRank = ranks.length ? Math.min.apply(null, ranks) : null;
+      m.worstRank = ranks.length ? Math.max.apply(null, ranks) : null;
+      m.roundsLeading = rounds.filter(function (r) { return m.rankAt[r] === 1; }).length;
+
+      // team value: the seven picks at that round's prices
+      played.forEach(function (r) {
+        var pr = data.prices && data.prices[r];
+        var t = m.team_[r];
+        if (pr && t && t.length && t.every(function (id) { return pr[id] != null; }))
+          m.teamValue[r] = round1(sum(t.map(function (id) { return pr[id]; })));
+        else m.teamValue[r] = null;
+      });
+      var lp = latestPriceRound != null ? data.prices[latestPriceRound] : null;
+      m.currentValue = lp && m.picks.length && m.picks.every(function (id) { return lp[id] != null; })
+        ? round1(sum(m.picks.map(function (id) { return lp[id]; }))) : null;
+      var firstVal = null;
+      played.forEach(function (r) { if (firstVal == null && m.teamValue[r] != null) firstVal = m.teamValue[r]; });
+      m.valueGain = m.currentValue != null && firstVal != null ? round1(m.currentValue - firstVal) : null;
+
+      // transfers: picks changed from one round to the next
+      var tot = 0, prevTeam = null;
+      rounds.forEach(function (r) {
+        var t = m.team_[r];
+        if (!t) { m.transfers[r] = null; prevTeam = null; return; }
+        if (!prevTeam) { m.transfers[r] = null; prevTeam = t; return; }
+        var ps = new Set(prevTeam);
+        var n = t.filter(function (id) { return !ps.has(id); }).length;
+        m.transfers[r] = n; tot += n; prevTeam = t;
+      });
+      m.totalTransfers = tot;
+    });
+
+    // per-round summary
+    var roundInfo = rounds.map(function (r) {
+      var played = managers.filter(function (m) { return m.pts[r] != null; });
+      var vals = played.map(function (m) { return m.pts[r]; });
+      var hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals);
+      var s = sched[r] || {};
+      return {
+        round: r, name: s.name || "Round " + r, short: s.short || ("R" + r), sprint: !!s.sprint, date: s.race || null,
+        avg: mean(vals), high: hi, low: lo, count: played.length,
+        winners: played.filter(function (m) { return m.pts[r] === hi; }),
+        losers: played.filter(function (m) { return m.pts[r] === lo; })
+      };
+    });
+    managers.forEach(function (m) {
+      m.aboveAvg = rounds.filter(function (r, i) { return m.pts[r] != null && m.pts[r] > roundInfo[i].avg; }).length;
+    });
+
+    // records
+    var all = [];
+    managers.forEach(function (m) { rounds.forEach(function (r) { if (m.pts[r] != null) all.push({ m: m, round: r, pts: m.pts[r] }); }); });
+    var top = all.slice().sort(function (a, b) { return b.pts - a.pts || a.round - b.round; }).slice(0, 10);
+    var bottom = all.slice().sort(function (a, b) { return a.pts - b.pts || a.round - b.round; }).slice(0, 10);
+    var climbs = [];
+    managers.forEach(function (m) {
+      for (var r = 2; r <= N; r++) {
+        if (m.rankAt[r] != null && m.rankAt[r - 1] != null) climbs.push({ m: m, round: r, delta: m.rankAt[r - 1] - m.rankAt[r], from: m.rankAt[r - 1], to: m.rankAt[r] });
+      }
+    });
+    var rises = climbs.filter(function (c) { return c.delta > 0; }).sort(function (a, b) { return b.delta - a.delta || a.round - b.round; }).slice(0, 5);
+    var falls = climbs.filter(function (c) { return c.delta < 0; }).sort(function (a, b) { return a.delta - b.delta || a.round - b.round; }).slice(0, 5);
+
+    // ownership: current picks across the league, against the whole game
+    var owners = {};
+    managers.forEach(function (m) { m.picks.forEach(function (id) { (owners[id] = owners[id] || []).push(m); }); });
+    var seasonCount = {};
+    managers.forEach(function (m) { rounds.forEach(function (r) { (m.team_[r] || []).forEach(function (id) { seasonCount[id] = (seasonCount[id] || 0) + 1; }); }); });
+    var managerRounds = sum(managers.map(function (m) { return m.played; }));
+    var lp2 = latestPriceRound != null ? data.prices[latestPriceRound] : {};
+    var lastPts = data.assetPoints || {};
+    var ownership = Object.keys(assets).map(function (id) {
+      var a = assets[id];
+      var tot = 0, scored = 0;
+      rounds.forEach(function (r) { var p = lastPts[r] && lastPts[r][id]; if (p != null) { tot += p; scored++; } });
+      return {
+        id: id, asset: a, owners: owners[id] || [], count: (owners[id] || []).length,
+        pct: managers.length ? (owners[id] || []).length / managers.length * 100 : 0,
+        global: data.ownershipGlobal ? num(data.ownershipGlobal[id]) : null,
+        seasonPct: managerRounds ? (seasonCount[id] || 0) / managerRounds * 100 : 0,
+        seasonCount: seasonCount[id] || 0,
+        price: lp2 && lp2[id] != null ? lp2[id] : null,
+        seasonPts: scored ? tot : null,
+        lastPts: N && lastPts[N] && lastPts[N][id] != null ? lastPts[N][id] : null,
+        active: a.active !== false
+      };
+    });
+    ownership.sort(function (a, b) { return b.count - a.count || b.seasonPct - a.seasonPct || (b.price || 0) - (a.price || 0); });
+
+    var next = null;
+    (data.schedule || []).forEach(function (s) { if (!next && s.round > N) next = s; });
+
+    return {
+      data: data, N: N, rounds: rounds, roundInfo: roundInfo, managers: managers, leader: leader,
+      sync: rec, priceRound: latestPriceRound,
+      records: { top: top, bottom: bottom, rises: rises, falls: falls },
+      ownership: ownership,
+      drivers: ownership.filter(function (o) { return o.asset.type === "D"; }),
+      constructors: ownership.filter(function (o) { return o.asset.type === "C"; }),
+      next: next,
+      remaining: (data.schedule || []).filter(function (s) { return s.round > N; }).length
+    };
+  }
+
+  var F1F = { build: build, verify: verify, reconcile: reconcile, mean: mean, median: median, stdev: stdev, rankBy: rankBy };
+  if (typeof module !== "undefined" && module.exports) module.exports = F1F;
+  else root.F1F = F1F;
+})(this);

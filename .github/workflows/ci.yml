@@ -1,0 +1,25 @@
+# Every push: sources parse, workflows are valid YAML, the service worker's
+# BUILD matches the app, and the stats engine passes its tests on a real
+# snapshot of the league.
+name: Checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install --no-save --prefix /tmp/ci js-yaml
+      - run: node scripts/check-sources.js
+        env:
+          NODE_PATH: /tmp/ci/node_modules
+      - run: node tests/compute.test.js
+      - run: node scripts/verify-data.js

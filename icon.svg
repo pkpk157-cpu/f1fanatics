@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" fill="#0f1014"/>
+<g transform="translate(256 256) scale(1) translate(-256 -256)">
+  <g transform="translate(72 112)">
+    <rect x="0" y="22" width="46" height="22" fill="#ffffff" opacity=".9"/><rect x="46" y="0" width="46" height="22" fill="#ffffff" opacity=".9"/><rect x="92" y="22" width="46" height="22" fill="#ffffff" opacity=".9"/><rect x="138" y="0" width="46" height="22" fill="#ffffff" opacity=".9"/><rect x="184" y="22" width="46" height="22" fill="#ffffff" opacity=".9"/><rect x="230" y="0" width="46" height="22" fill="#ffffff" opacity=".9"/><rect x="276" y="22" width="46" height="22" fill="#ffffff" opacity=".9"/><rect x="322" y="0" width="46" height="22" fill="#ffffff" opacity=".9"/>
+  </g>
+  <text x="256" y="372" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="230" fill="#ffffff" letter-spacing="-12">FF</text>
+  <path d="M84 404 L444 404 L428 432 L68 432 Z" fill="#e10600"/>
+</g></svg>

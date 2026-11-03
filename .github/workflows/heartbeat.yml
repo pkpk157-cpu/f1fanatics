@@ -1,0 +1,110 @@
+# ---------------------------------------------------------------------------
+# The league's clock.
+#
+# GitHub's own schedule is not a clock: it drops and delays scheduled runs,
+# sometimes for hours. So this job pokes the updater every ten minutes for
+# the best part of an hour, then hands over to a fresh copy of itself. The
+# chain keeps time; GitHub's schedule below only restarts it if it breaks.
+# Only one chain exists at a time (concurrency, cancel-in-progress).
+#
+# It also watches its own work: if the updater has not finished a successful
+# run for 45 minutes, this run fails and GitHub emails the repository owner.
+#
+# Needs one secret, CRON_PAT: a workflow cannot start another workflow with
+# the built-in GITHUB_TOKEN (GitHub blocks it to prevent runaway loops). Make
+# a fine-grained token with "Actions: read and write" on this repository and
+# save it under Settings → Secrets and variables → Actions as CRON_PAT.
+#
+# Actions minutes are free and unlimited on a public repository. On a private
+# one this uses roughly 1,500 minutes a month of the 2,000 free.
+# ---------------------------------------------------------------------------
+name: Heartbeat
+on:
+  schedule:
+    - cron: "7,27,47 * * * *"
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: heartbeat
+  cancel-in-progress: true
+jobs:
+  tick:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check the key that keeps the chain alive
+        env:
+          PAT: ${{ secrets.CRON_PAT }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "::error::CRON_PAT is not set, so the heartbeat cannot start the updater or hand over."
+            echo "::error::Fix: Settings → Secrets and variables → Actions → New repository secret,"
+            echo "::error::named CRON_PAT, holding a fine-grained token with Actions: read and write on this repository."
+            exit 1
+          fi
+
+      - name: Poke the updater every ten minutes
+        env:
+          GH_TOKEN: ${{ secrets.CRON_PAT }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -u
+          # A run stuck "waiting" holds the pages lock every later update
+          # queues behind. Cancel any update or deploy unfinished after 25
+          # minutes (a normal one takes under two).
+          heal() {
+            for wf in update-data.yml pages.yml; do
+              ids=$(gh api "repos/$REPO/actions/workflows/$wf/runs?per_page=30" --jq '.workflow_runs[]
+                | select(.status != "completed")
+                | select((now - (.created_at | fromdateiso8601)) > 1500 and (now - (.created_at | fromdateiso8601)) < 604800)
+                | .id' 2>/dev/null) || continue
+              for id in $ids; do
+                echo "::warning::$wf run $id stuck over 25 minutes, cancelling it"
+                gh api -X POST "repos/$REPO/actions/runs/$id/cancel" >/dev/null 2>&1 \
+                  || gh api -X POST "repos/$REPO/actions/runs/$id/force-cancel" >/dev/null 2>&1 || true
+              done
+            done
+          }
+          for i in 1 2 3 4 5; do
+            heal
+            echo "--- poke $i of 5 at $(date -u +%H:%M:%SZ)"
+            gh workflow run update-data.yml --repo "$REPO" --ref "$REF" || echo "::warning::poke $i failed"
+            if [ "$i" != "5" ]; then sleep 600; fi
+          done
+
+      - name: Check the updater is actually succeeding
+        env:
+          GH_TOKEN: ${{ secrets.CRON_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -u
+          sleep 90
+          LAST=$(gh api "repos/$REPO/actions/workflows/update-data.yml/runs?status=success&per_page=1" \
+                   --jq '.workflow_runs[0].updated_at // empty' 2>/dev/null || echo "")
+          if [ -z "$LAST" ]; then echo "::warning::could not read the last successful update"; exit 0; fi
+          AGE=$(( $(date -u +%s) - $(date -u -d "$LAST" +%s) ))
+          echo "last successful update finished $LAST (${AGE}s ago)"
+          if [ "$AGE" -gt 2700 ]; then
+            echo "::error::No successful 'Update F1 data' run for $((AGE / 60)) minutes. The clock is running,"
+            echo "::error::so the updater itself is failing — check its most recent run."
+            exit 1
+          fi
+
+      - name: Hand over to the next heartbeat
+        # Runs even if the watchdog failed: a broken updater must not also
+        # stop the clock.
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.CRON_PAT }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+        run: |
+          for i in 1 2 3; do
+            if gh workflow run heartbeat.yml --repo "$REPO" --ref "$REF"; then echo "handed over"; exit 0; fi
+            echo "handover attempt $i failed, retrying"; sleep $((i * 5))
+          done
+          echo "::error::could not hand over; the scheduled backstop will restart the chain."
+          exit 1

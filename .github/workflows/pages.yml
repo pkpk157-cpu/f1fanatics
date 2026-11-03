@@ -1,0 +1,35 @@
+# Deploys the app to GitHub Pages on every push to main.
+# One-time setup: Settings → Pages → Source: "GitHub Actions".
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url || steps.deploy2.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: rm -rf tests .github
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+      - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.deployment.outcome == 'failure'
+        run: echo "deploy refused, asking again in 60s"; sleep 60
+      - id: deploy2
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
