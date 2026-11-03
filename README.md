@@ -15,9 +15,10 @@ Four tabs in a bar docked to the bottom, each split into sub-tabs at the top:
   your head-to-head record against everyone)
 - **Picks**: Template · Drivers · Constructors · Differentials · Trusted
 
-The **menu** (≡, top right) has your team and its dropdown at the top, every
-**Stats** section (Records · Weekends · Honours · Form · Movement · Value) in
-the middle, and **Settings** at the bottom.
+The **menu** (≡, top right) has your team at the top (with **Change** for the
+dropdown) and My profile, then every **Stats** section (Records · Weekends ·
+Honours · Form · Movement · Value), then **League** (XP, Head to head, Game
+rules) with **Settings** last, and when the data last changed at the foot.
 
 Tap any manager, round, driver or constructor for its page.
 

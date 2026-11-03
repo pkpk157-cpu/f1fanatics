@@ -816,25 +816,50 @@
     moves: "Biggest climbs and drops, highs and lows",
     value: "Team value and picks changed"
   };
+  var ICON = {
+    profile: '<circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />',
+    records: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z" />',
+    weekends: '<rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" />',
+    honours: '<circle cx="12" cy="14" r="6" /><path d="M8.5 3h7l-2 5.2M8.5 3l2 5.2M12 11.5v5" />',
+    form: '<path d="M3 12h4l3-8 4 16 3-8h4" />',
+    moves: '<path d="M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4" />',
+    value: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1.5" />',
+    xp: '<path d="M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.9z" />',
+    h2h: '<circle cx="12" cy="12" r="9" /><path d="M8 9l8 6M16 9l-8 6" />',
+    rules: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h11" />',
+    settings: '<circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.14.6.66 1 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" />'
+  };
+  function ico(k) { return '<svg class="dr-i" viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + "</svg>"; }
+  function drItem(o) {
+    var tag = o.href ? "a" : "button";
+    return "<" + tag + ' class="dr-item' + (o.on ? " on" : "") + '"' + (o.href ? ' href="' + o.href + '" data-close="1"' : ' type="button"') + (o.attr || "") + ">" + ico(o.icon) +
+      '<span class="dr-t">' + esc(o.title) + (o.sub ? "<small>" + esc(o.sub) + "</small>" : "") + "</span></" + tag + ">";
+  }
   function drawerHtml() {
-    var me = S.me && byId(S.me), h = "";
-    h += '<div class="dr-head"><img src="icon-192.png" alt="" width="40" height="40" /><div><b>' + esc((S.data.league && S.data.league.name) || CONFIG.leagueName) + "</b><small>" +
-      esc(S.data.league.season) + " · league " + esc(S.data.league.id) + '</small></div><button class="iconbtn" id="drawerClose" aria-label="Close menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button></div>';
-    h += '<div class="group-h">Your team</div><div class="group card dr-team">';
+    var me = S.me && byId(S.me), M = S.model, h = "";
+    // who you are, and the switch
+    h += '<div class="dr-who">';
     if (me) {
-      var n = lastFirst(me);
-      h += '<a class="dr-me" href="#you" data-close="1"><span class="dr-pos t' + medal(me.rank) + '">' + me.rank + '</span><span class="dr-name">' + (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) +
-        "</b><small>" + esc(me.team) + " · " + fmt(me.total) + " pts</small></span><span class=\"chev\">›</span></a>";
+      h += '<span class="dr-av">' + esc((me.team || me.name).trim().charAt(0).toUpperCase()) + '</span><span class="dr-id"><b>' + esc(me.team) + "</b><small>" + esc(me.name) + " · " + ordinal(me.rank) + "</small></span>" +
+        '<button type="button" class="dr-change" data-toggle-team="1">Change</button>';
     } else {
-      h += '<p class="sub" style="margin:0 0 8px">Pick your team to see your season and be highlighted everywhere.</p>';
+      h += '<span class="dr-av">?</span><span class="dr-id"><b>Choose your team</b><small>See your season, highlighted everywhere</small></span>';
     }
-    h += teamSelect() + "</div>";
+    h += '</div><div class="dr-select"' + (me ? " hidden" : "") + ">" + teamSelect() + "</div>";
+    h += '<nav class="dr-list">' + drItem({ icon: "profile", title: "My profile", href: "#you", on: S.tab === "you" });
     var cur = S.tab === "stats" ? S.sub.stats : null;
-    h += '<div class="group-h">Stats</div><div class="group card" style="padding:0">' + SUBS.stats.map(function (x) {
-      return '<a class="item dr-link' + (x[0] === cur ? " on" : "") + '" href="#stats/' + x[0] + '" data-close="1"><span class="lab">' + esc(x[1]) + "<small>" + esc(STATS_NOTES[x[0]] || "") + '</small></span><span class="chev">›</span></a>';
-    }).join("") + "</div>";
-    h += '<div class="dr-foot"><div class="group card" style="padding:0"><button class="item" data-open="settings"><span class="dr-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.14.6.66 1 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" /></svg></span>' +
-      '<span class="lab">Settings<small>Appearance, game rules, league XP, about the data</small></span><span class="chev">›</span></button></div></div>';
+    h += '<div class="dr-h">Stats</div>' + SUBS.stats.map(function (x) {
+      return drItem({ icon: x[0], title: x[1], sub: STATS_NOTES[x[0]], href: "#stats/" + x[0], on: x[0] === cur });
+    }).join("");
+    h += '<div class="dr-h">League</div>' +
+      drItem({ icon: "xp", title: "XP", sub: "The XP pool, race XP and the season split", href: "#league/prizes", on: S.tab === "league" && S.sub.league === "prizes" }) +
+      drItem({ icon: "h2h", title: "Head to head", sub: "Your record against every manager", href: "#you/rivals", on: S.tab === "you" && S.sub.you === "rivals" }) +
+      drItem({ icon: "rules", title: "Game rules", sub: "F1 Fantasy scoring, chips and transfers", attr: ' data-open="rules"' }) +
+      drItem({ icon: "settings", title: "Settings", sub: "Appearance, league XP, about the data", attr: ' data-open="settings"' });
+    h += "</nav>";
+    h += '<div class="dr-foot"><p>Updated ' + esc(ago(S.data.generatedAt)) + " · " + M.managers.length + " managers<br>" +
+      (M.next && M.next.lock && Date.parse(M.next.lock) > Date.now() ? esc(M.next.short) + " locks in " + until(M.next.lock) : "Round " + M.N + " of " + (M.N + M.remaining)) +
+      '</p><img src="logo.webp" alt="F1 Fanatics Fantasy League" width="96" height="96" /></div>';
     return h;
   }
   function openDrawer() {
@@ -952,6 +977,11 @@
 
   document.addEventListener("click", function (e) {
     if (e.target.closest("#drawerClose")) { closeDrawer(); return; }
+    if (e.target.closest("[data-toggle-team]")) {
+      var box = document.querySelector("#drawer .dr-select");
+      if (box) { box.hidden = !box.hidden; if (!box.hidden) { var sel = box.querySelector("select"); if (sel) sel.focus(); } }
+      return;
+    }
     var link = e.target.closest("#drawer a[data-close]");
     if (link) { closeDrawer(); return; } // the link itself navigates
     var t = e.target.closest("[data-focus],[data-m],[data-r],[data-a],[data-theme-set],[data-open],[data-round-nav]");
@@ -974,7 +1004,13 @@
     }
     if (t.hasAttribute("data-open")) {
       var what = t.getAttribute("data-open");
-      if (what === "settings") { closeDrawer(); settingsSheet(); }
+      if (what === "settings" || what === "rules") {
+        closeDrawer(); settingsSheet();
+        if (what === "rules") {
+          var g = [].slice.call(document.querySelectorAll("#sheetBody .group-h")).filter(function (x) { return /Game rules/.test(x.textContent); })[0];
+          if (g) g.scrollIntoView({ block: "start" });
+        }
+      }
       else if (what === "info") infoSheet();
       return;
     }
