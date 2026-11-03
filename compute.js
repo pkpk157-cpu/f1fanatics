@@ -359,7 +359,55 @@
     };
   }
 
-  var F1F = { build: build, verify: verify, reconcile: reconcile, mean: mean, median: median, stdev: stdev, rankBy: rankBy };
+  /* ------------------------------------------------------------------ */
+  /* Prize money: entry x managers is the pot; each round's top scorer   */
+  /* takes perRound (ties split it); the rest goes to the season's top   */
+  /* three in the ratio cfg.split (tied places share their prizes).      */
+  /* ------------------------------------------------------------------ */
+  function splitExact(total, weights) {
+    // whole amounts that add up exactly (largest remainder)
+    var w = sum(weights), raw = weights.map(function (x) { return total * x / w; });
+    var out = raw.map(Math.floor), left = total - sum(out);
+    raw.map(function (x, i) { return { i: i, f: x - Math.floor(x) }; }).sort(function (a, b) { return b.f - a.f; })
+      .slice(0, left).forEach(function (x) { out[x.i]++; });
+    return out;
+  }
+  function prizes(M, cfg) {
+    if (!cfg) return null;
+    var players = M.managers.length;
+    var totalRounds = Math.max(M.N, (M.data.schedule || []).length);
+    var pot = cfg.entry * players;
+    var roundPool = cfg.perRound * totalRounds;
+    var seasonPool = pot - roundPool;
+    var seasonPrizes = splitExact(seasonPool, cfg.split || [1]);
+    var by = {};
+    M.managers.forEach(function (m) { by[m.id] = { m: m, race: 0, raceWins: [], projected: 0 }; });
+    var payouts = M.roundInfo.map(function (ri) {
+      var each = cfg.perRound / ri.winners.length;
+      ri.winners.forEach(function (w) { by[w.id].race += each; by[w.id].raceWins.push({ round: ri.round, amount: each, shared: ri.winners.length > 1 }); });
+      return { round: ri.round, winners: ri.winners, each: each };
+    });
+    // if the season ended now: places by rank, ties share the places they cover
+    var groups = {};
+    M.managers.forEach(function (m) { (groups[m.rank] = groups[m.rank] || []).push(m); });
+    Object.keys(groups).forEach(function (rk) {
+      var g = groups[rk], start = Number(rk), pool = 0;
+      for (var p = start; p < start + g.length; p++) if (p <= seasonPrizes.length) pool += seasonPrizes[p - 1];
+      g.forEach(function (m) { by[m.id].projected = pool / g.length; });
+    });
+    M.managers.forEach(function (m) {
+      var x = by[m.id];
+      x.total = x.race + x.projected;
+      x.net = x.total - cfg.entry;
+    });
+    return {
+      cfg: cfg, players: players, pot: pot, totalRounds: totalRounds,
+      roundPool: roundPool, roundsPaid: M.N * cfg.perRound, roundsLeft: totalRounds - M.N,
+      seasonPool: seasonPool, seasonPrizes: seasonPrizes, payouts: payouts, by: by
+    };
+  }
+
+  var F1F = { build: build, prizes: prizes, splitExact: splitExact, verify: verify, reconcile: reconcile, mean: mean, median: median, stdev: stdev, rankBy: rankBy };
   if (typeof module !== "undefined" && module.exports) module.exports = F1F;
   else root.F1F = F1F;
 })(this);

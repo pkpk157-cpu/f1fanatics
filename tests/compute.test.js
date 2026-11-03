@@ -102,4 +102,30 @@ test("verify catches a broken standings order", () => {
   assert.ok(F1F.verify(d).errors.length >= 1);
 });
 
+test("prize money: pot, race prizes and the 25:18:15 season split", () => {
+  const M = F1F.build(fixture());
+  const P = F1F.prizes(M, { entry: 5000, perRound: 500, split: [25, 18, 15], currency: "₹" });
+  assert.strictEqual(P.pot, 50000);
+  assert.strictEqual(P.totalRounds, 23);
+  assert.strictEqual(P.roundPool, 11500);
+  assert.strictEqual(P.seasonPool, 38500);
+  assert.deepStrictEqual(P.seasonPrizes, [16595, 11948, 9957]);
+  assert.strictEqual(P.seasonPrizes.reduce((a, b) => a + b), 38500);
+  const race = M.managers.reduce((a, m) => a + P.by[m.id].race, 0);
+  assert.ok(Math.abs(race - M.N * 500) < 1e-6, "every round's 500 is paid out exactly once");
+  const proj = M.managers.reduce((a, m) => a + P.by[m.id].projected, 0);
+  assert.strictEqual(proj, 38500);
+  assert.strictEqual(P.by[M.managers[0].id].projected, 16595);
+});
+
+test("tied final places share their prizes", () => {
+  const d = fixture();
+  d.managers[1].total = d.managers[0].total; // 1st and 2nd level
+  const M = F1F.build(d);
+  const P = F1F.prizes(M, { entry: 5000, perRound: 500, split: [25, 18, 15] });
+  const a = P.by[d.managers[0].id].projected, b = P.by[d.managers[1].id].projected;
+  assert.strictEqual(a, b);
+  assert.strictEqual(a + b, 16595 + 11948);
+});
+
 console.log(n + " tests passed");

@@ -8,7 +8,7 @@
   var OLD_TABS = { standings: "league", races: "league" };
   // each tab is split into sub-tabs; only the chosen one is drawn
   var SUBS = {
-    league: [["table", "Standings"], ["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"], ["form", "Form"]],
+    league: [["table", "Standings"], ["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"], ["prizes", "Prizes"], ["form", "Form"]],
     you: [["overview", "Overview"], ["team", "Team"], ["rounds", "Rounds"], ["picks", "Picks"], ["rivals", "Rivals"]],
     trends: [["rank", "Position"], ["gap", "Gap"], ["pts", "Points"], ["value", "Value"]],
     stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["form", "Form"], ["moves", "Movement"], ["value", "Value"]],
@@ -36,6 +36,7 @@
     if (n == null || !isFinite(n)) return "–";
     return Number(n).toLocaleString("en-GB", { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
   }
+  function cur(v) { var c = (CONFIG.prizes && CONFIG.prizes.currency) || ""; return v == null ? "–" : (v < 0 ? "−" : "") + c + fmt(Math.abs(Math.round(v))); }
   function signed(n, d) { if (n == null) return "–"; return (n > 0 ? "+" : n < 0 ? "−" : "±") + fmt(Math.abs(n), d); }
   function money(n) { return n == null ? "–" : "$" + fmt(n, 1) + "m"; }
   // 1st gold, 2nd silver, 3rd bronze — everywhere a position is shown
@@ -194,6 +195,7 @@
     var changed = !S.data || S.data.generatedAt !== d.generatedAt || !!S.data._offline !== !!d._offline;
     S.data = d;
     S.model = F1F.build(d);
+    S.prizes = F1F.prizes(S.model, CONFIG.prizes);
     S.fetchedAt = Date.now();
     if (S.me && !byId(S.me)) S.me = null;
     return changed;
@@ -305,6 +307,34 @@
     return h;
   }
 
+  function viewPrizes() {
+    var P = S.prizes, M = S.model;
+    if (!P) return "";
+    var c = P.cfg, h = SUB("prizes");
+    var medals = ["1st", "2nd", "3rd"];
+    h += '<section class="hero">' +
+      tile("The pot", cur(P.pot), P.players + " × " + cur(c.entry)) +
+      tile("Race prizes", cur(P.roundPool), P.totalRounds + " races × " + cur(c.perRound)) +
+      tile("Paid so far", cur(P.roundsPaid), M.N + " of " + P.totalRounds + " races") +
+      tile("Still to win", cur(P.roundsLeft * c.perRound), P.roundsLeft + " race" + (P.roundsLeft === 1 ? "" : "s") + " + the season") + "</section>";
+    h += '<section class="card"><h2>Season prizes</h2><p class="sub">What\'s left after the race prizes (' + cur(P.pot) + " − " + cur(P.roundPool) + " = " + cur(P.seasonPool) + "), split " + c.split.join(" : ") + " between the top three at the end of the season.</p>" +
+      '<div class="prize3">' + P.seasonPrizes.map(function (v, i) {
+        return '<div class="pz pz' + (i + 1) + '"><span class="pzn">' + medals[i] + "</span><b>" + cur(v) + "</b><small>" + c.split[i] + " parts</small></div>";
+      }).join("") + "</div></section>";
+    var rows = M.managers.slice().sort(function (a, b) { return P.by[b.id].total - P.by[a.id].total || a.rank - b.rank; });
+    h += '<section class="card"><h2>Winnings</h2><p class="sub">Race prizes won so far, plus the season prize each would take if the season ended today (gold, silver, bronze). Net is after the ' + cur(c.entry) + " entry.</p>";
+    h += '<div class="tblwrap"><table class="wintbl"><thead><tr><th class="l">Manager</th><th>Races</th><th title="Season prize if it ended now">Season</th><th>Net</th></tr></thead><tbody>';
+    rows.forEach(function (m) {
+      var x = P.by[m.id], shared = x.raceWins.some(function (w) { return w.shared; });
+      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) +
+        "<td>" + cur(x.race) + "<small>" + x.raceWins.length + " won" + (shared ? "*" : "") + "</small></td>" +
+        '<td class="' + "t" + medal(m.rank) + '">' + (x.projected ? cur(x.projected) : "–") + "</td>" +
+        '<td class="num ' + (x.net >= 0 ? "up" : "down") + '">' + (x.net >= 0 ? "+" : "") + cur(x.net) + "<small>won " + cur(x.total) + "</small></td></tr>";
+    });
+    h += '</tbody></table></div><p class="sub" style="margin:8px 0 0">* includes a tied round, where the winners split the ' + cur(c.perRound) + '. Amounts are rounded to the nearest ' + esc(c.currency || "") + "1.</p></section>";
+    return h;
+  }
+
   function viewRaces() {
     var M = S.model, h = "";
     if (S.podR == null || S.podR > M.N || S.podR < 1) S.podR = M.N;
@@ -343,7 +373,7 @@
       h += standRow({
         pos: ri.round, attr: ' data-r="' + ri.round + '"', me: ri.winners.some(isMe),
         name: "<b>" + esc(ri.short) + "</b>",
-        sub: "🏆 " + esc(ri.winners.map(function (m) { return m.name; }).join(" & ")) + " · avg " + fmt(ri.avg) + (ri.sprint ? " · sprint" : ""),
+        sub: "🏆 " + esc(ri.winners.map(function (m) { return m.name; }).join(" & ")) + (S.prizes ? " · " + cur(S.prizes.cfg.perRound / ri.winners.length) + (ri.winners.length > 1 ? " each" : "") : "") + " · avg " + fmt(ri.avg) + (ri.sprint ? " · sprint" : ""),
         pts: fmt(ri.high)
       });
     });
@@ -725,8 +755,12 @@
     var head = '<section class="you-h"><div class="you-pos"><span class="' + "t" + medal(m.rank) + '">' + m.rank + '</span><small>of ' + M.managers.length + '</small></div><div class="you-name">' +
       (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b><small>" + esc(m.team) + '</small></div><div class="you-pts"><b>' + fmt(m.total) + "</b><small>" +
       (m.gapLeader ? "−" + fmt(m.gapLeader) + " to 1st" : "leading") + "</small></div></section>";
+    var W = S.prizes && S.prizes.by[m.id];
+    var money2 = W ? '<section class="hero">' + tile("Race winnings", cur(W.race), W.raceWins.length + " race" + (W.raceWins.length === 1 ? "" : "s") + " won") +
+      tile("If it ended now", W.projected ? cur(W.projected) : "–", W.projected ? ordinal(m.rank) + " place prize" : "outside the top three") +
+      tile("Total", cur(W.total), "race + season prize") + tile("Net", (W.net >= 0 ? "+" : "") + cur(W.net), "after the " + cur(S.prizes.cfg.entry) + " entry") + "</section>" : "";
     return head +
-      SUB("overview") + P.tiles +
+      SUB("overview") + P.tiles + money2 +
       '<section class="card"><h2>Your league position</h2><p class="sub">You in blue, the leader in gold.</p><div class="chartbox" data-chart="rank"></div></section>' +
       '<section class="card"><h2>Your points per round</h2><p class="sub">Against the league average (dashed).</p><div class="chartbox" data-chart="pts"></div></section>' +
       SUB("team") + P.team +
@@ -804,6 +838,17 @@
         return '<button role="radio" aria-checked="' + (t === o[0]) + '" class="' + (t === o[0] ? "on" : "") + '" data-theme-set="' + o[0] + '">' + o[1] + "</button>";
       }).join("") + '</div><p class="sub" style="margin:8px 2px 0">Auto follows your phone\'s light or dark setting.</p></div>';
 
+    var PZ = S.prizes;
+    if (PZ) {
+      var c = PZ.cfg;
+      h += '<div class="group-h">League prizes</div><div class="group card rules" style="padding:0"><details open><summary>How the pot is shared</summary><div class="body"><table class="rtable"><tbody>' +
+        "<tr><td>Entry</td><td>" + cur(c.entry) + " each × " + PZ.players + " = " + cur(PZ.pot) + "</td></tr>" +
+        "<tr><td>Each race</td><td>" + cur(c.perRound) + " to the top scorer (ties split it)</td></tr>" +
+        "<tr><td>All " + PZ.totalRounds + " races</td><td>" + cur(PZ.roundPool) + "</td></tr>" +
+        "<tr><td>Season pot</td><td>" + cur(PZ.seasonPool) + ", split " + c.split.join(" : ") + "</td></tr>" +
+        "<tr><td>1st / 2nd / 3rd</td><td>" + PZ.seasonPrizes.map(cur).join(" / ") + "</td></tr>" +
+        "</tbody></table><p style=\"margin-top:8px\">Tied final places share the prizes for the places they cover.</p></div></details></div>";
+    }
     if (R) {
       h += '<div class="group-h">Game rules · F1 Fantasy 2026</div><div class="group card rules" style="padding:0">' +
         R.sections.map(function (sec) {
@@ -861,7 +906,7 @@
     if (!S.model) return;
     renderChrome();
     var v = $("view");
-    var fn = { league: function () { return viewStandings() + viewRaces(); }, you: viewYou, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
+    var fn = { league: function () { return viewStandings() + viewRaces() + viewPrizes(); }, you: viewYou, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
     var cur = S.sub[S.tab] || SUBS[S.tab][0][0];
     $("subtabs").innerHTML = SUBS[S.tab].map(function (x) {
       return '<a href="#' + S.tab + "/" + x[0] + '" class="' + (x[0] === cur ? "on" : "") + '"' + (x[0] === cur ? ' aria-current="page"' : "") + ">" + esc(x[1]) + "</a>";

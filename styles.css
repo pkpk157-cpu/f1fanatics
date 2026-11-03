@@ -706,3 +706,18 @@ main { padding-top: 8px; }
 .you-pts small { font-size: 10.5px; opacity: .85; }
 .youpick .select { margin-top: 4px; }
 .tabbar a.you-tab svg { width: 26px; height: 26px; }
+
+/* ---------- prizes ---------- */
+.prize3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pz { border-radius: 14px; padding: 12px 8px; text-align: center; color: #1a1205; font-family: var(--display); }
+.pz1 { background: var(--p1-grad); }
+.pz2 { background: var(--p2-grad); color: #16181c; }
+.pz3 { background: var(--p3-grad); color: #1f0d02; }
+.pz .pzn { display: block; font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 14px; opacity: .85; }
+.pz b { display: block; font-weight: 900; font-size: 20px; margin: 2px 0; }
+.pz small { font-family: var(--font); font-size: 11px; opacity: .8; }
+:root[data-theme="light"] .pz, :root[data-theme="light"] .pz2, :root[data-theme="light"] .pz3 { color: #fff; }
+@media (prefers-color-scheme: light) { :root[data-theme="system"] .pz, :root[data-theme="system"] .pz2, :root[data-theme="system"] .pz3 { color: #fff; } }
+.wintbl td small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 500; }
+.wintbl .who { max-width: 30vw; }
+.wintbl td, .wintbl th { padding-left: 4px; padding-right: 4px; }

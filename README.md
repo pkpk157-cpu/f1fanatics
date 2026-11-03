@@ -42,6 +42,17 @@ demand. The app never loads images from F1. Anything not mirrored yet shows
 initials. The display type is Titillium Web (SIL Open Font License, in
 `fonts/`).
 
+## Prize money
+
+Set in `config.js` (`prizes`) and shown under **League › Prizes**, on **Your
+team › Overview**, on the round winners board and in Settings:
+
+- Everyone pays ₹5,000 → a ₹50,000 pot (10 managers).
+- Each race's top scorer wins ₹500 (23 races = ₹11,500). Tied winners split it.
+- The rest, ₹38,500, goes to the season's top three in the ratio 25 : 18 : 15:
+  ₹16,595 / ₹11,948 / ₹9,957. Tied final places share the prizes for the
+  places they cover.
+
 ## Where the data comes from
 
 F1 Fantasy's public feeds. No login and no API key:
