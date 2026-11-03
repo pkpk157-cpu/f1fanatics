@@ -211,6 +211,11 @@ async function main() {
     teamColors: teamColors || {},
     managers
   };
+  // rounds a late joiner is missing, entered by hand in config.js
+  F1F.applyManualRounds(data, CONFIG.manualRounds).forEach((x) => {
+    if (!x.ok) console.log("::warning::manual rounds for " + (x.name || x.id) + " not used: " + x.why);
+    else if (x.applied && x.applied.length) console.log("manual rounds for " + x.name + ": " + x.applied.join(", "));
+  });
   data.checks = F1F.verify(data);
 
   // Shrinking history means a feed hiccup, not F1 un-racing a Grand Prix.

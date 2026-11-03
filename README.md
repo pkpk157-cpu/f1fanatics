@@ -69,9 +69,11 @@ F1 Fantasy's public feeds. No login and no API key:
 league on 3 November 2026: after round 19, the 19 list_2 scores added up
 exactly to the list_1 total for every manager with a full history, the scores
 went up and down from round to round, and round 19 alone (e.g. 192) was nothing
-like the total (4,852). One manager joined from round 4 and is absent from
-rounds 1–3 of list_2. Their 876 earlier points are in their F1 total, and the
-tracker carries them as points from before joining.
+like the total (4,852). One manager (Karanraj) joined after round 3 and is absent from
+rounds 1–3 of list_2. His scores for those rounds (204, 505, 167, from the
+league's own sheet) are entered by hand in `config.js` (`manualRounds`); the
+updater uses them only because they add up exactly to the 876 points F1
+counts in his total, and would ignore them with a warning if they didn't.
 
 `data.json` is built for everyone by a GitHub Action, not by a person:
 `scripts/fetch-data.js` reads the feeds, `scripts/verify-data.js` checks that

@@ -128,4 +128,23 @@ test("tied final places share their XP", () => {
   assert.strictEqual(a + b, 16595 + 11948);
 });
 
+test("hand-entered rounds fill a late joiner's gap only when they add up", () => {
+  const d = fixture();
+  const res = F1F.applyManualRounds(d, { "185065214": { 1: 204, 2: 505, 3: 167 } });
+  assert.ok(res[0].ok && res[0].applied.length === 3);
+  const M = F1F.build(d);
+  const k = M.managers.find((m) => m.id === "185065214");
+  assert.strictEqual(k.preJoin, 0);
+  assert.strictEqual(k.cum[2], 709);
+  assert.strictEqual(k.rankAt[2], 1);
+  assert.strictEqual(M.roundInfo[1].winners[0].id, "185065214"); // China: 505
+  assert.strictEqual(k.transfers[4], null); // team before joining is unknown
+  assert.deepStrictEqual(F1F.verify(d).warnings, []);
+
+  const bad = fixture();
+  const r2 = F1F.applyManualRounds(bad, { "185065214": { 1: 204, 2: 500, 3: 167 } });
+  assert.strictEqual(r2[0].ok, false);
+  assert.ok(!bad.managers.find((m) => m.id === "185065214").rounds[1], "wrong numbers are not applied");
+});
+
 console.log(n + " tests passed");

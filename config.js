@@ -12,6 +12,14 @@
     // `perRace` (tied winners share it); what's left of the pool after every
     // race goes to the season's top three in the ratio `split` (tied places
     // share the XP for the places they cover).
+    // Round scores F1's league feed doesn't have, entered by hand: a manager
+    // who joined the league late is missing from the rounds before they
+    // joined. Only used if they add up exactly to the points F1 already
+    // counts in that manager's total; otherwise ignored, with a warning.
+    // Karanraj Chaudri joined after Japan; from the league's own sheet.
+    manualRounds: {
+      "185065214": { 1: 204, 2: 505, 3: 167 }
+    },
     xp: {
       stake: 5000,
       perRace: 500,

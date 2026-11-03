@@ -105,6 +105,8 @@
       var known = 0, missing = [];
       for (var r = 1; r <= N; r++) { if (m.rounds[r]) known += m.rounds[r].pts; else missing.push(r); }
       var diff = Math.round((m.total - known) * 100) / 100;
+      var hand = Object.keys(m.rounds).filter(function (r) { return m.rounds[r].manual; });
+      if (hand.length) notes.push(m.name + ": round" + (hand.length > 1 ? "s " : " ") + hand.join(", ") + " entered by hand (the league feed doesn't have them); they add up to the points F1 counts in their total");
       if (!missing.length) {
         if (diff !== 0 && rec.state === "ok") warnings.push(m.name + ": rounds 1–" + N + " sum to " + known + " but the standings say " + m.total);
       } else {
@@ -160,7 +162,7 @@
       var known = 0, lastMissing = 0;
       rounds.forEach(function (r) {
         var x = src.rounds[r];
-        if (x) { m.pts[r] = x.pts; m.team_[r] = x.team || []; known += x.pts; }
+        if (x) { m.pts[r] = x.pts; if (x.team && x.team.length) m.team_[r] = x.team; known += x.pts; }
         else { m.pts[r] = null; lastMissing = r; }
       });
       // Totals: list_1, plus the newest round if the standings are a round behind.
@@ -407,7 +409,32 @@
     };
   }
 
-  var F1F = { build: build, prizes: prizes, splitExact: splitExact, verify: verify, reconcile: reconcile, mean: mean, median: median, stdev: stdev, rankBy: rankBy };
+  /* Hand-entered round scores for rounds the league feed is missing (a late
+     joiner). Applied only when they fill the gap exactly: the manager's
+     known rounds plus these must equal F1's total for them. Returns what
+     happened, for the checks. */
+  function applyManualRounds(data, manual) {
+    var out = [];
+    if (!manual) return out;
+    Object.keys(manual).forEach(function (id) {
+      var m = data.managers.find(function (x) { return x.id === String(id); });
+      if (!m) { out.push({ id: id, ok: false, why: "not in the standings" }); return; }
+      var add = manual[id], rounds = Object.keys(add).map(Number).filter(function (r) { return r >= 1 && r <= (data.roundsPlayed || 0) && !m.rounds[r]; });
+      if (!rounds.length) { out.push({ id: id, name: m.name, ok: true, applied: [], why: "nothing missing" }); return; }
+      var known = 0; Object.keys(m.rounds).forEach(function (r) { known += m.rounds[r].pts; });
+      var missing = 0; for (var r = 1; r <= data.roundsPlayed; r++) if (!m.rounds[r]) missing++;
+      var given = rounds.reduce(function (a, r) { return a + Number(add[r]); }, 0);
+      if (rounds.length !== missing || Math.abs(known + given - m.total) > 0.01) {
+        out.push({ id: id, name: m.name, ok: false, why: "hand-entered rounds add up to " + given + " but F1's total leaves " + (m.total - known) });
+        return;
+      }
+      rounds.forEach(function (r) { m.rounds[r] = { pts: Number(add[r]), rank: null, team: [], manual: true }; });
+      out.push({ id: id, name: m.name, ok: true, applied: rounds });
+    });
+    return out;
+  }
+
+  var F1F = { build: build, applyManualRounds: applyManualRounds, prizes: prizes, splitExact: splitExact, verify: verify, reconcile: reconcile, mean: mean, median: median, stdev: stdev, rankBy: rankBy };
   if (typeof module !== "undefined" && module.exports) module.exports = F1F;
   else root.F1F = F1F;
 })(this);
