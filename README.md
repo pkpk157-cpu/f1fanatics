@@ -25,7 +25,10 @@ and F1 Fantasy's scoring) and **Settings** (appearance, about the data).
 
 Each piece of information lives in one place.
 
-Tap any manager, round, driver or constructor for its page.
+Tap any manager, round, driver or constructor for its page. A manager's page has **Compare**:
+you and them side by side, both teams for any race (chosen from a list,
+shared picks dimmed so the differences stand out, each pick's points and
+both round scores), then the season in numbers with the better side lit.
 
 Choosing your team (top of the menu) highlights you everywhere and is saved
 on that device only. **Settings** has Dark, Light and Auto themes (dark is the default),

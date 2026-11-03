@@ -789,7 +789,98 @@
     var m = byId(id);
     if (!m) return;
     var P = managerParts(m);
-    openSheet(P.head + P.tiles + P.team + P.rounds);
+    var cmp = isMe(m) ? "" : '<button type="button" class="cmp-btn" data-compare="' + esc(m.id) + '">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M17 4v16M3 8h8M13 16h8" /></svg>Compare with ' + (S.me && byId(S.me) ? "you" : "your team") + "</button>";
+    openSheet(P.head + cmp + P.tiles + P.team + P.rounds);
+  }
+
+  /* ---------------- compare: you and another manager ---------------- */
+  // both teams side by side for a chosen race, then the season in numbers
+  function compareSheet(otherId) {
+    var M = S.model, b = byId(otherId), a = S.me && byId(S.me);
+    if (!b) return;
+    if (!a || a === b) {
+      openSheet("<h1>Compare</h1>" + '<section class="card youpick"><h2>Which team is yours?</h2>' + teamSelect() + "</section>");
+      S.cmp = { b: b.id, pending: true };
+      return;
+    }
+    var last = null;
+    M.rounds.forEach(function (r) { if (a.pts[r] != null || b.pts[r] != null) last = r; });
+    S.cmp = { a: a.id, b: b.id, r: last };
+    var side = function (m, cls) {
+      return '<div class="cmp-side ' + cls + '"><div class="cmp-rk"><span class="t' + medal(m.rank) + '">' + ordinal(m.rank) + "</span></div>" +
+        '<div class="cmp-nm">' + esc(firstName(m)) + "</div><small>" + esc(m.team) + '</small><b class="cmp-pts">' + fmt(m.total) + "</b></div>";
+    };
+    var h = "<h1>Compare</h1>" + '<section class="cmp-h">' + side(a, "a") + '<div class="cmp-vs">VS</div>' + side(b, "b") + "</section>";
+    if (last != null) {
+      h += '<section class="card"><div class="cmp-bar"><h2>Teams</h2><select class="select cmpRound" aria-label="Race">' +
+        M.rounds.slice().reverse().map(function (r) {
+          return '<option value="' + r + '"' + (r === last ? " selected" : "") + ">R" + r + " · " + esc(M.roundInfo[r - 1].short) + "</option>";
+        }).join("") + '</select></div><div id="cmpTeams">' + compareTeams(a, b, last) + "</div></section>";
+    }
+    h += compareSeason(a, b);
+    openSheet(h);
+  }
+
+  function compareTeams(a, b, r) {
+    var pts = (S.data.assetPoints || {})[r] || {};
+    var ta = a.team_[r] || [], tb = b.team_[r] || [];
+    var byPts = function (x, y) { return (pts[y] || 0) - (pts[x] || 0); };
+    var cell = function (id, same) {
+      if (!id) return '<div class="cpick none"></div>';
+      var A = assetOf(id) || { name: "?", type: "D", team: "" }, n = splitName(A);
+      return '<div class="cpick' + (same ? " same" : "") + '" data-a="' + esc(id) + '" style="' + tc(teamColor(A.team)) + '">' +
+        '<span class="ctile">' + (A.type === "C" ? pic(id, "logo", "clogo") : pic(id, "head", "chead")) + '</span><span class="cnm">' + esc(n.last) + "</span><b>" + fmt(pts[id]) + "</b></div>";
+    };
+    var block = function (type) {
+      var A = ta.filter(function (id) { return (assetOf(id) || {}).type === type; });
+      var B = tb.filter(function (id) { return (assetOf(id) || {}).type === type; });
+      var same = A.filter(function (id) { return B.indexOf(id) >= 0; }).sort(byPts);
+      var onlyA = A.filter(function (id) { return same.indexOf(id) < 0; }).sort(byPts);
+      var onlyB = B.filter(function (id) { return same.indexOf(id) < 0; }).sort(byPts);
+      var rows = same.map(function (id) { return cell(id, true) + cell(id, true); });
+      for (var i = 0; i < Math.max(onlyA.length, onlyB.length); i++) rows.push(cell(onlyA[i]) + cell(onlyB[i]));
+      return rows.join("");
+    };
+    var known = function (m) { return (m.team_[r] || []).length > 0; };
+    var note = function (m) { return m.pts[r] == null ? "Not in the league yet" : "Team not published for this round"; };
+    var h = "";
+    if (!known(a) || !known(b)) {
+      h += '<div class="cmp-grid">' + [a, b].map(function (m) { return known(m) ? "" : '<div class="cpick none wide">' + esc(firstName(m)) + ": " + note(m) + "</div>"; }).join("") + "</div>";
+    }
+    if (known(a) || known(b)) h += '<div class="cmp-grid">' + block("D") + '</div><div class="cmp-div"></div><div class="cmp-grid">' + block("C") + "</div>";
+    var pa = a.pts[r], pb = b.pts[r], win = pa != null && pb != null ? (pa > pb ? "a" : pb > pa ? "b" : "") : "";
+    var tot = function (m, k) {
+      return '<div class="cmp-tot ' + k + (win === k ? " win" : "") + '"><b>' + fmt(m.pts[r]) + "</b><small>" + (m.roundRank[r] ? ordM(m.roundRank[r]) + " in the round" : "–") + "</small></div>";
+    };
+    return h + '<div class="cmp-grid">' + tot(a, "a") + tot(b, "b") + "</div>";
+  }
+
+  function compareSeason(a, b) {
+    var M = S.model, W = S.prizes ? S.prizes.by : {};
+    var h2h = { a: 0, b: 0 };
+    M.rounds.forEach(function (r) { if (a.pts[r] == null || b.pts[r] == null) return; if (a.pts[r] > b.pts[r]) h2h.a++; else if (b.pts[r] > a.pts[r]) h2h.b++; });
+    var net = function (m) { return W[m.id] ? W[m.id].net : null; };
+    // [label, a, b, which is better ("high", "low" or none), shown as]
+    var rows = [
+      ["Position", a.rank, b.rank, "low", function (v) { return ordM(v); }],
+      ["Points", a.total, b.total, "high"],
+      ["Rounds won head to head", h2h.a, h2h.b, "high"],
+      ["Average", a.avg, b.avg, "high"],
+      ["Best round", a.best && a.best.pts, b.best && b.best.pts, "high"],
+      ["Worst round", a.worst && a.worst.pts, b.worst && b.worst.pts, "high"],
+      ["Round wins", a.wins, b.wins, "high"],
+      ["Top-3 finishes", a.podiums, b.podiums, "high"],
+      ["Highest position", a.bestRank, b.bestRank, "low", function (v) { return ordM(v); }],
+      ["Team value", a.currentValue, b.currentValue, "high", money],
+      ["Transfers", a.totalTransfers, b.totalTransfers, ""],
+      ["Net XP", net(a), net(b), "high", function (v) { return v == null ? "–" : (v >= 0 ? "+" : "") + cur(v, true); }]
+    ];
+    return '<section class="card"><h2>Season</h2><div class="cmp-tbl">' + rows.map(function (x) {
+      var f = x[4] || function (v) { return fmt(v); }, va = x[1], vb = x[2], wa = false, wb = false;
+      if (x[3] && va != null && vb != null && va !== vb) { wa = x[3] === "high" ? va > vb : va < vb; wb = !wa; }
+      return '<div class="cmp-row"><span class="v a' + (wa ? " win" : "") + '">' + f(va) + '</span><span class="k">' + esc(x[0]) + '</span><span class="v b' + (wb ? " win" : "") + '">' + f(vb) + "</span></div>";
+    }).join("") + "</div></section>";
   }
 
   function teamSelect() {
@@ -1005,6 +1096,8 @@
       if (S.tab === "trends") { var y0 = window.scrollY; render(); window.scrollTo(0, y0); }
       return;
     }
+    var cb = e.target.closest("[data-compare]");
+    if (cb) { compareSheet(cb.getAttribute("data-compare")); return; }
     var t = e.target.closest("[data-focus],[data-m],[data-r],[data-a],[data-theme-set],[data-open],[data-round-nav]");
     if (!t) return;
     if (t.hasAttribute("data-round-nav")) {
@@ -1038,6 +1131,12 @@
     if (e.target.classList && e.target.classList.contains("meSelect")) {
       S.me = e.target.value || null; save("me", S.me); render();
       if ($("drawer").open) $("drawerBody").innerHTML = drawerHtml();
+      // picked from the compare sheet: carry on to the comparison
+      if (S.cmp && S.cmp.pending && $("sheet").open && S.me) compareSheet(S.cmp.b);
+    }
+    if (e.target.classList && e.target.classList.contains("cmpRound") && S.cmp) {
+      var a = byId(S.cmp.a), b = byId(S.cmp.b), r = Number(e.target.value), box = $("cmpTeams");
+      if (a && b && box && r >= 1 && r <= S.model.N) { S.cmp.r = r; box.innerHTML = compareTeams(a, b, r); }
     }
   });
   $("sheetClose").addEventListener("click", closeSheet);
