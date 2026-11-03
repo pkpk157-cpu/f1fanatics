@@ -252,8 +252,49 @@
   function d0(ri) { return ri ? S.data.league.season + " " + ri.name : "round " + S.model.N; }
   function tile(k, v, d) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="d">' + (d || "") + "</div></div>"; }
 
+  // a manager's top-scoring driver in a round: their face and colours for it
+  function starOf(m, r) {
+    var pts = (S.data.assetPoints || {})[r] || {}, best = null;
+    (m.team_[r] || []).forEach(function (id) { var a = assetOf(id); if (a && a.type === "D" && pts[id] != null && (best == null || pts[id] > pts[best])) best = id; });
+    return best;
+  }
+  function lastFirst(m) { var p = m.name.split(" "); return { first: p.length > 1 ? p.slice(0, -1).join(" ") : "", last: p[p.length - 1] }; }
+
+  /* round result, like F1's race-result graphic: podium 2-1-3, then the rest */
+  function podiumHtml(r, nav) {
+    var M = S.model, ri = M.roundInfo[r - 1];
+    if (!ri) return "";
+    var list = M.managers.filter(function (m) { return m.pts[r] != null; }).sort(function (a, b) { return a.roundRank[r] - b.roundRank[r] || a.name.localeCompare(b.name); });
+    var top = list.slice(0, 3), rest = list.slice(3);
+    var card = function (m, place) {
+      if (!m) return "";
+      var sid = starOf(m, r), a = sid ? assetOf(sid) : null, col = a ? teamColor(a.team) : "#3a3a40", n = lastFirst(m);
+      return '<div class="pod p' + place + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '" style="' + tc(col) + '">' +
+        '<div class="pod-img"><span class="pod-num">' + m.roundRank[r] + "</span>" + (sid ? pic(sid, "head", "pod-face") : "") +
+        '<span class="pod-pts"><b>' + fmt(m.pts[r]) + "</b>PTS</span></div>" +
+        '<div class="pod-name">' + (place === 1 ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b></div></div>";
+    };
+    var h = '<section class="result">';
+    h += '<div class="result-h">' + (nav ? '<button class="rnav" data-round-nav="' + (r - 1) + '"' + (r <= 1 ? " disabled" : "") + ' aria-label="Previous round">‹</button>' : "") +
+      '<div class="result-t"><span class="lime">ROUND ' + r + '</span> <span class="sl">/</span> ' + esc(ri.short.toUpperCase()) + "</div>" +
+      (nav ? '<button class="rnav" data-round-nav="' + (r + 1) + '"' + (r >= M.N ? " disabled" : "") + ' aria-label="Next round">›</button>' : "") + "</div>";
+    h += '<div class="podium">' + card(top[1], 2) + card(top[0], 1) + card(top[2], 3) + "</div>";
+    if (rest.length) {
+      h += '<div class="rlist">' + rest.map(function (m) {
+        var after = m.rankAt[r], before = r > 1 ? m.rankAt[r - 1] : null, mv = after != null && before != null ? before - after : null;
+        return '<div class="rrow' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rpos">' + m.roundRank[r] + '</div><div class="rname"><b>' + esc(m.name) +
+          "</b><small>" + esc(m.team) + (after ? " · " + ordinal(after) + " overall" : "") + (mv ? ' <span class="' + (mv > 0 ? "up" : "down") + '">' + (mv > 0 ? "▲" : "▼") + Math.abs(mv) + "</span>" : "") +
+          '</small></div><div class="rpts"><b>' + fmt(m.pts[r]) + "</b>PTS</div></div>";
+      }).join("") + "</div>";
+    }
+    h += '<div class="result-f">League average ' + fmt(ri.avg) + (nav ? ' · <a href="#" data-r="' + r + '">full round ›</a>' : "") + "</div></section>";
+    return h;
+  }
+
   function viewRaces() {
     var M = S.model, h = "";
+    if (S.podR == null || S.podR > M.N || S.podR < 1) S.podR = M.N;
+    h += podiumHtml(S.podR, true);
     h += '<section class="card"><h2>Race by race</h2><p class="sub">Points each round. The brighter the red, the higher they finished in that round; gold outline = round winner.</p>';
     h += '<div class="tblwrap"><table class="heat"><thead><tr><th class="l">Manager</th>';
     M.roundInfo.forEach(function (ri) { h += '<th class="rd" title="' + esc(ri.name) + '">' + esc(abbr(ri.short)) + "<br>" + ri.round + "</th>"; });
@@ -594,13 +635,7 @@
     var list = M.managers.filter(function (m) { return m.pts[r] != null; }).sort(function (a, b) { return a.roundRank[r] - b.roundRank[r]; });
     var h = "<h1>Round " + r + " · " + esc(ri.name) + '</h1><p class="lede">' + (ri.date ? when(ri.date, { day: "numeric", month: "long", year: "numeric" }) : "") + (ri.sprint ? " · sprint weekend" : "") +
       " · league average " + fmt(ri.avg, 1) + "</p>";
-    h += '<section class="card"><div class="tblwrap"><table><thead><tr><th class="c">#</th><th class="l">Manager</th><th>Pts</th><th>vs avg</th><th>League after</th><th>Moved</th></tr></thead><tbody>';
-    list.forEach(function (m) {
-      var mv = r > 1 && m.rankAt[r - 1] != null && m.rankAt[r] != null ? m.rankAt[r - 1] - m.rankAt[r] : null;
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="pos">' + m.roundRank[r] + "</td>" + whoCell(m) + '<td class="num" style="' + heat(m.roundRank[r], ri.count) + '">' + fmt(m.pts[r]) +
-        '</td><td class="' + (m.pts[r] >= ri.avg ? "up" : "down") + '">' + signed(m.pts[r] - ri.avg) + "</td><td>" + (m.rankAt[r] ? ordinal(m.rankAt[r]) : "–") + "</td>" + moveCell(mv) + "</tr>";
-    });
-    h += "</tbody></table></div></section>";
+    h += podiumHtml(r, false);
     // dream team: the best possible seven that round
     if (ri.totw) {
       var t = ri.totw;
@@ -732,8 +767,19 @@
   }
 
   document.addEventListener("click", function (e) {
-    var t = e.target.closest("[data-focus],[data-m],[data-r],[data-a],[data-theme-set],[data-open]");
+    var t = e.target.closest("[data-focus],[data-m],[data-r],[data-a],[data-theme-set],[data-open],[data-round-nav]");
     if (!t) return;
+    if (t.hasAttribute("data-round-nav")) {
+      var nr = Number(t.getAttribute("data-round-nav"));
+      if (nr >= 1 && nr <= S.model.N) {
+        S.podR = nr;
+        var box = t.closest(".result"), tmp = document.createElement("div");
+        tmp.innerHTML = podiumHtml(nr, true);
+        box.replaceWith(tmp.firstChild);
+      }
+      return;
+    }
+    if (t.tagName === "A" && t.hasAttribute("data-r")) e.preventDefault();
     if (t.hasAttribute("data-theme-set")) {
       applyTheme(t.getAttribute("data-theme-set"));
       t.parentNode.querySelectorAll("button").forEach(function (b) { var on = b === t; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
