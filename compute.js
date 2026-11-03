@@ -48,7 +48,16 @@
   // can be a round ahead of the other. Managers with a complete round history
   // decide it; a manager who joined late has points from before joining that
   // the league feed never shows, so they cannot.
+  // fill in what a damaged or partial data.json leaves out, so nothing below throws
+  function tidy(data) {
+    if (!data || typeof data !== "object") return data;
+    if (!Array.isArray(data.managers)) data.managers = [];
+    data.managers.forEach(function (m) { if (!m.rounds || typeof m.rounds !== "object") m.rounds = {}; });
+    data.roundsPlayed = Number(data.roundsPlayed) || 0;
+    return data;
+  }
   function reconcile(data) {
+    tidy(data);
     var N = data.roundsPlayed || 0;
     var full = data.managers.filter(function (m) {
       for (var r = 1; r <= N; r++) if (!m.rounds[r]) return false;
@@ -73,6 +82,7 @@
   /* data.json, and shown in the app's About sheet.                      */
   /* ------------------------------------------------------------------ */
   function verify(data) {
+    tidy(data);
     var errors = [], warnings = [], notes = [];
     if (!data || !Array.isArray(data.managers) || !data.managers.length) {
       errors.push("no managers in the standings");
@@ -143,6 +153,7 @@
   /* The model the app renders.                                          */
   /* ------------------------------------------------------------------ */
   function build(data) {
+    tidy(data);
     var N = data.roundsPlayed || 0;
     var rounds = [];
     for (var r = 1; r <= N; r++) rounds.push(r);
@@ -155,7 +166,7 @@
 
     var managers = data.managers.map(function (src) {
       var m = {
-        id: src.id, name: src.name, team: src.team, picks: (src.picks || []).slice(),
+        id: String(src.id), name: String(src.name || ""), team: String(src.team || ""), picks: (src.picks || []).slice(),
         feedRank: src.rank, feedTotal: src.total,
         pts: {}, team_: {}, cum: {}, rankAt: {}, roundRank: {}, teamValue: {}, transfers: {}
       };
@@ -380,7 +391,7 @@
     var totalRounds = Math.max(M.N, (M.data.schedule || []).length);
     var pot = cfg.entry * players;
     var roundPool = cfg.perRound * totalRounds;
-    var seasonPool = pot - roundPool;
+    var seasonPool = Math.max(0, pot - roundPool);
     var seasonPrizes = splitExact(seasonPool, cfg.split || [1]);
     var by = {};
     M.managers.forEach(function (m) { by[m.id] = { m: m, race: 0, raceWins: [], projected: 0 }; });
@@ -414,6 +425,7 @@
      known rounds plus these must equal F1's total for them. Returns what
      happened, for the checks. */
   function applyManualRounds(data, manual) {
+    tidy(data);
     var out = [];
     if (!manual) return out;
     Object.keys(manual).forEach(function (id) {

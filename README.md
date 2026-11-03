@@ -109,7 +109,11 @@ hour, then hands over to a fresh copy of itself. GitHub's own `schedule:` on
 both workflows is only a backstop, because GitHub drops and delays scheduled
 runs, sometimes for hours. The heartbeat also cancels any update stuck for
 over 25 minutes. If no update has succeeded in 45 minutes, the heartbeat run
-fails and GitHub emails the repository owner.
+fails and GitHub emails the repository owner. It stops by itself three days after
+the season's last race (`scripts/season-over.js`).
+
+Every deploy to Pages (a push to `main`, new data, new photos) ships the
+newest `main` and only after the source checks and engine tests pass.
 
 ## One-time setup
 
@@ -125,8 +129,9 @@ fails and GitHub emails the repository owner.
 4. **Start the clock**: Actions → Heartbeat → Run workflow (or wait for the
    schedule to start it).
 
-Actions minutes are free on a public repository. On a private one the
-heartbeat uses roughly 1,500 of the 2,000 free minutes a month.
+Actions minutes are free on a public repository. The heartbeat keeps one
+runner busy around the clock, so on a private repository it would need a paid
+plan.
 
 ## Changing league
 

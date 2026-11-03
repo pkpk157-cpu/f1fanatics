@@ -8,7 +8,7 @@
    checked on every push: it changes when, and only when, the app does — not
    when the data updater publishes a new data.json. data.json is never cached
    here; app.js keeps its own last copy for offline. */
-const BUILD = "5819d10bac02";
+const BUILD = "0d05a02d54d9";
 const CACHE = "f1f-" + BUILD;
 // Driver photos, kept across releases: they don't change with one.
 const PHOTOS = "f1fphotos";
@@ -47,11 +47,25 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.endsWith("/data.json")) return;
+  // A photo's URL carries its version (?v=…): a new version replaces the old
+  // copy instead of piling up beside it.
   if (/\/photos\/[^/]+\.webp$/.test(url.pathname)) {
     e.respondWith(caches.open(PHOTOS).then((c) => c.match(req).then((hit) => hit || fetch(req).then((res) => {
-      if (res.ok) c.put(req, res.clone());
+      if (res.ok) {
+        const copy = res.clone();
+        c.keys().then((keys) => Promise.all(keys.filter((k) => new URL(k.url).pathname === url.pathname).map((k) => c.delete(k))))
+          .then(() => c.put(req, copy)).catch(() => {});
+      }
       return res;
     }))));
+    return;
+  }
+  // Which photos exist: the newest list when online, the last one offline.
+  if (url.pathname.endsWith("/photos/index.json")) {
+    e.respondWith(caches.open(PHOTOS).then((c) => fetch(req).then((res) => {
+      if (res.ok) c.put(url.pathname, res.clone()).catch(() => {});
+      return res;
+    }).catch(() => c.match(url.pathname).then((hit) => hit || Response.json({})))));
     return;
   }
   if (!SHELL.has(url.pathname)) return;

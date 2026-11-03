@@ -26,7 +26,13 @@
   }
   var REFRESH_MS = 5 * 60 * 1000;
 
-  var S = { data: null, model: null, me: load("me"), hl: null, tab: "league", sub: load("sub") || {}, fetchedAt: 0 };
+  var S = { data: null, model: null, me: null, hl: null, tab: "league", sub: {}, fetchedAt: 0 };
+  // saved settings, ignored if a browser kept something unreadable
+  (function () {
+    var me = load("me"), sub = load("sub");
+    S.me = typeof me === "string" && me ? me : null;
+    S.sub = sub && typeof sub === "object" && !Array.isArray(sub) ? sub : {};
+  })();
 
   /* ---------------- small helpers ---------------- */
   function load(k) { try { return JSON.parse(localStorage.getItem("f1f." + k)); } catch (e) { return null; } }
@@ -72,7 +78,12 @@
     "Haas F1 Team": "#9c9fa2", "Audi": "#b4b4b4", "Cadillac": "#c9a227", "Kick Sauber": "#52e252"
   };
   // F1's own 2026 team colours from data.json, these only as a fallback
-  function teamColor(t) { return (S.data && S.data.teamColors && S.data.teamColors[t]) || TEAM_COLORS[t] || "#888"; }
+  // only plain hex colours ever reach a style attribute
+  var HEX = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i;
+  function teamColor(t) {
+    var c = S.data && S.data.teamColors && S.data.teamColors[t];
+    return HEX.test(c || "") ? c : TEAM_COLORS[t] || "#888";
+  }
   // black or white text, whichever reads better on a team colour
   function ink(hex) {
     var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ""); if (!m) return "#fff";
@@ -80,7 +91,7 @@
     var L = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
     return L > 0.36 ? "#0b0b0d" : "#fff";
   }
-  function tc(hex) { return "--tc:" + hex + ";--ink:" + ink(hex); }
+  function tc(hex) { hex = HEX.test(hex || "") ? hex : "#888"; return "--tc:" + hex + ";--ink:" + ink(hex); }
   function assetOf(id) { return (S.data && S.data.assets && S.data.assets[id]) || null; }
   function priceNow(id) { var M = S.model, p = M && M.priceRound != null ? S.data.prices[M.priceRound] : null; return p && p[id] != null ? p[id] : null; }
   function priceMove(id) {
@@ -96,7 +107,7 @@
   // a picture from photos/ (mirrored by the photos workflow), or initials
   function pic(id, kind, cls) {
     var a = assetOf(id), ph = S.photos && S.photos[id] && S.photos[id][kind];
-    if (ph) return '<img class="' + (cls || "") + '" src="' + esc(ph) + '" alt="" loading="lazy" decoding="async" />';
+    if (ph) return '<img class="' + (cls || "") + '" src="' + esc(ph) + '" alt="" loading="lazy" decoding="async" data-ini="' + initials(a) + '" />';
     return '<span class="' + (cls || "") + ' noimg">' + initials(a) + "</span>";
   }
   function splitName(a) {
@@ -147,10 +158,6 @@
       (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b>" + (sub ? '<small>' + sub + "</small>" : "") + "</div>" +
       '<div class="apill">' + right + "</div></div>";
   }
-  function assetLabel(a, withTeam) {
-    if (!a) return "?";
-    return a.type === "C" ? esc(a.name) : esc(a.name) + (withTeam ? ' <span class="muted">· ' + esc(a.team) + "</span>" : "");
-  }
 
   // shade for a round rank: brighter red = higher in the round
   function heat(rank, n) {
@@ -167,12 +174,6 @@
     var col = t >= 0.67 ? "#1f9d47" : t <= 0.33 ? "#d6302a" : "var(--chip-mid)";
     return '<span style="background:' + col + '" title="' + ordinal(rank) + ' in the round">' + rank + "</span>";
   }
-  function moveCell(mv) {
-    if (mv == null) return '<td class="mv same">–</td>';
-    if (mv > 0) return '<td class="mv up" title="Up ' + mv + '">▲' + mv + "</td>";
-    if (mv < 0) return '<td class="mv down" title="Down ' + -mv + '">▼' + -mv + "</td>";
-    return '<td class="mv same" title="No change">–</td>';
-  }
   function whoCell(m) {
     return '<td class="l who"><div class="n">' + esc(m.name) + (isMe(m) ? ' <span class="pill me">you</span>' : "") +
       '</div><div class="t">' + esc(m.team) + "</div></td>";
@@ -181,29 +182,46 @@
   /* ---------------- data ---------------- */
   function fetchData() {
     return fetch(CONFIG.dataUrl + "?t=" + Date.now(), { cache: "no-store" })
-      .then(function (r) { if (!r.ok) throw new Error("data.json " + r.status); return r.json(); })
-      .then(function (d) {
-        try { localStorage.setItem("f1f.data", JSON.stringify(d)); } catch (e) {}
+      .then(function (r) { if (!r.ok) throw new Error("data.json " + r.status); return r.text(); })
+      .then(function (t) {
+        var d = JSON.parse(t);
+        if (!d || typeof d !== "object") throw new Error("data.json is empty");
+        Object.defineProperty(d, "_raw", { value: t }); // kept for offline once it has proved good
         return d;
-      })
-      .catch(function (e) {
-        var cached = load("data");
-        if (cached) return Object.assign(cached, { _offline: true });
-        throw e;
       });
   }
+  function cachedData() {
+    var c = load("data");
+    return c && typeof c === "object" ? Object.assign(c, { _offline: true }) : null;
+  }
+  // Fresh data if it can be shown; otherwise the last good copy on this phone.
+  function loadData() {
+    return fetchData().then(setData).catch(function (e) {
+      var c = cachedData();
+      if (!c) throw e;
+      return setData(c);
+    });
+  }
+  // Builds the model first and only switches over (and saves the copy kept for
+  // offline) when that works, so a bad download can't replace good data.
   function setData(d) {
-    var changed = !S.data || S.data.generatedAt !== d.generatedAt || !!S.data._offline !== !!d._offline;
-    S.data = d;
-    S.model = F1F.build(d);
-    S.prizes = CONFIG.xp ? F1F.prizes(S.model, { entry: CONFIG.xp.stake, perRound: CONFIG.xp.perRace, split: CONFIG.xp.split }) : null;
-    S.fetchedAt = Date.now();
+    if (S.data && S.data.generatedAt === d.generatedAt && !!S.data._offline === !!d._offline) { S.fetchedAt = Date.now(); return false; }
+    d.league = d.league && typeof d.league === "object" ? d.league : {};
+    if (!d.league.season) d.league.season = CONFIG.season;
+    var model = F1F.build(d);
+    if (!model.managers.length || !model.leader) throw new Error("no managers in the data");
+    var prizes = CONFIG.xp ? F1F.prizes(model, { entry: CONFIG.xp.stake, perRound: CONFIG.xp.perRace, split: CONFIG.xp.split }) : null;
+    var oldLeader = S.model && S.model.leader && S.model.leader.id;
+    S.data = d; S.model = model; S.prizes = prizes; S.fetchedAt = Date.now(); S.first = null;
     if (S.me && !byId(S.me)) S.me = null;
-    return changed;
+    // highlighted lines: drop managers who left; start again if the lead changed hands
+    if (S.hl) S.hl = oldLeader !== model.leader.id ? null : S.hl.filter(function (id) { return byId(id); });
+    if (d._raw) { try { localStorage.setItem("f1f.data", d._raw); } catch (e) {} }
+    return true;
   }
   function refresh(force) {
     if (!force && Date.now() - S.fetchedAt < REFRESH_MS) return;
-    fetchData().then(function (d) { if (setData(d)) render(); }).catch(function () {});
+    loadData().then(function (changed) { if (changed) render(); }).catch(function () {});
   }
 
   /* ---------------- header & banner ---------------- */
@@ -253,7 +271,6 @@
       return '<div class="fig"><b' + (f.cls ? ' class="' + f.cls + '"' : "") + ">" + f.v + "</b><span>" + esc(f.k) + "</span>" + (f.d ? "<small>" + esc(f.d) + "</small>" : "") + "</div>";
     }).join("") + "</section>";
   }
-  function tile(k, v, d) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="d">' + (d || "") + "</div></div>"; }
 
   function lastFirst(m) { var p = m.name.split(" "); return { first: p.length > 1 ? p.slice(0, -1).join(" ") : "", last: p[p.length - 1] }; }
 
@@ -354,7 +371,6 @@
   }
   function roundSheet(r) {
     if (r < 1 || r > S.model.N) return;
-    S.podR = r;
     openSheet(podiumHtml(r, true) + dreamTeam(r) + whoScored(r));
   }
 
@@ -386,10 +402,18 @@
       "Qatar": "QAT", "Abu Dhabi": "ABU", "Emilia Romagna": "EMI", "Madrid": "MAD" };
     return A[s] || String(s).slice(0, 3).toUpperCase();
   }
+  // first names, with a surname initial where two managers share one; worked out once per data
   function firstName(m) {
-    var f = m.name.split(" ")[0];
-    var clash = S.model.managers.filter(function (x) { return x.name.split(" ")[0] === f; }).length > 1;
-    return clash ? m.name.split(" ").slice(0, 1).join(" ") + " " + (m.name.split(" ")[1] || "").charAt(0) + "." : f;
+    if (!S.first) {
+      var count = {}, first = function (x) { return x.name.split(" ")[0]; };
+      S.first = {};
+      S.model.managers.forEach(function (x) { count[first(x)] = (count[first(x)] || 0) + 1; });
+      S.model.managers.forEach(function (x) {
+        var f = first(x), p = x.name.split(" ");
+        S.first[x.id] = count[f] > 1 && p[1] ? f + " " + p[1].charAt(0) + "." : f;
+      });
+    }
+    return S.first[m.id] || m.name;
   }
 
   function viewTrends() {
@@ -397,9 +421,10 @@
     return card("rank") + card("total") + card("gap");
   }
   // Highlighted lines: the leader and you to start with; tap names (or a line) to add or remove, "All" for everyone.
-  var HL_COLORS = ["#ff453a", "#ff9f0a", "#30d158", "#bf5af2", "#ff6fae", "#5e5ce6", "#c69c6d", "#00c7be", "#9be15d", "#ffb38a"];
+  var HL_COLORS = ["#ff453a", "#f08c00", "#30d158", "#bf5af2", "#ff6fae", "#5e5ce6", "#b08850", "#00b8b0", "#6fbf3a", "#e0784a"];
   function hlSet() {
     var M = S.model;
+    if (!M.leader) return [];
     if (!S.hl) S.hl = [M.leader.id].concat(S.me && byId(S.me) && S.me !== M.leader.id ? [S.me] : []);
     return S.hl;
   }
@@ -421,7 +446,7 @@
     }).join("") + "</div>";
   }
 
-  function chartSeries(kind, only) {
+  function chartSeries(kind) {
     var M = S.model;
     var leadCum = {};
     M.rounds.forEach(function (r) {
@@ -429,14 +454,12 @@
       M.managers.forEach(function (m) { if (m.cum[r] != null && (best == null || m.cum[r] > best)) best = m.cum[r]; });
       leadCum[r] = best;
     });
-    return M.managers.filter(function (m) { return !only || m.id === only; }).map(function (m) {
+    return M.managers.map(function (m) {
       var vals = {};
       M.rounds.forEach(function (r) {
         if (kind === "rank") vals[r] = m.rankAt[r];
         else if (kind === "gap") vals[r] = m.cum[r] == null ? null : leadCum[r] - m.cum[r];
-        else if (kind === "pts") vals[r] = m.pts[r];
         else if (kind === "total") vals[r] = m.cum[r];
-        else if (kind === "value") vals[r] = m.teamValue[r];
       });
       return { id: m.id, label: m.name, vals: vals };
     });
@@ -580,8 +603,7 @@
       zoomTo(geo.z * Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
     }, { passive: false });
   }
-  function valLabel(kind, v) { return kind === "rank" ? ordinal(v) : kind === "gap" ? (v ? "−" + fmt(v) : "lead") : kind === "value" ? fmt(v, 1) : fmt(v); }
-  function shortName(n) { var p = n.split(" "); return p[0] + (p[1] ? " " + p[1].charAt(0) + "." : ""); }
+  function valLabel(kind, v) { return kind === "rank" ? ordinal(v) : kind === "gap" ? (v ? "−" + fmt(v) : "lead") : fmt(v); }
   function pathOf(pts) { return pts.map(function (p, i) { return (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1); }).join(" "); }
   function niceStep(span, n) { var raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag; }
   function niceMax(v) { if (v <= 0) return 0; var s = niceStep(v, 4); return Math.ceil(v / s) * s; }
@@ -595,15 +617,15 @@
     // Records
     h += SUB("records");
     h += '<div class="grid two">';
-    h += '<section class="card"><h2>Highest rounds</h2><p class="sub">Best single-round scores this season.</p><div class="rows ranked">' +
+    h += '<section class="card"><h2>Highest rounds</h2><div class="rows ranked">' +
       M.records.top.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round), fmt(x.pts)); }).join("") + "</div></section>";
-    h += '<section class="card"><h2>Lowest rounds</h2><p class="sub">The weekends to forget.</p><div class="rows ranked">' +
+    h += '<section class="card"><h2>Lowest rounds</h2><div class="rows ranked">' +
       M.records.bottom.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round), fmt(x.pts)); }).join("") + "</div></section>";
     h += "</div><div style=\"height:14px\"></div>";
 
     // Best / worst weekends per manager + consistency
     h += SUB("weekends");
-    h += '<section class="card"><h2>Best &amp; worst weekends</h2><p class="sub">Per manager. SD = how much their score swings round to round (lower = steadier).</p>';
+    h += '<section class="card"><h2>Best &amp; worst weekends</h2>';
     h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>Best</th><th class="l"></th><th>Worst</th><th class="l"></th><th>Avg</th><th>Median</th><th>SD</th></tr></thead><tbody>';
     M.managers.forEach(function (m) {
       h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) +
@@ -615,7 +637,7 @@
 
     // Honours
     h += SUB("honours");
-    h += '<section class="card"><h2>Round honours</h2><p class="sub">Round wins (top score of the round, ties shared), top-three finishes, last places, rounds above the league average, and rounds spent top of the standings.</p>';
+    h += '<section class="card"><h2>Round honours</h2>';
     h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>Wins</th><th>Top 3</th><th>Last</th><th>Above avg</th><th>Led after</th></tr></thead><tbody>';
     M.managers.slice().sort(function (a, b) { return b.wins - a.wins || b.podiums - a.podiums || a.rank - b.rank; }).forEach(function (m) {
       h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) + '<td class="num">' + m.wins + "</td><td>" + m.podiums + "</td><td>" + m.lastPlace +
@@ -626,9 +648,9 @@
     // Movement
     h += SUB("moves");
     h += '<div class="grid two">';
-    h += '<section class="card"><h2>Biggest climbs</h2><p class="sub">Places gained in the standings in a single round.</p><div class="rows ranked">' +
+    h += '<section class="card"><h2>Biggest climbs</h2><div class="rows ranked">' +
       (M.records.rises.length ? M.records.rises.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round) + " · " + ordinal(x.from) + " → " + ordinal(x.to), '<span class="up">▲' + x.delta + "</span>"); }).join("") : '<div class="empty">None yet.</div>') + "</div></section>";
-    h += '<section class="card"><h2>Biggest drops</h2><p class="sub">Places lost in a single round.</p><div class="rows ranked">' +
+    h += '<section class="card"><h2>Biggest drops</h2><div class="rows ranked">' +
       (M.records.falls.length ? M.records.falls.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round) + " · " + ordinal(x.from) + " → " + ordinal(x.to), '<span class="down">▼' + -x.delta + "</span>"); }).join("") : '<div class="empty">None yet.</div>') + "</div></section>";
     h += "</div><div style=\"height:14px\"></div>";
 
@@ -641,8 +663,7 @@
 
     // Team value & transfers
     h += SUB("value");
-    h += '<section class="card"><h2>Team value &amp; transfers</h2><p class="sub">Value = the seven current picks at ' + (M.priceRound > M.N ? "this week's" : "the latest") +
-      ' prices; gain is against their first team. Changes = picks swapped between rounds (chips like Wildcard and Limitless count too).</p>';
+    h += '<section class="card"><h2>Team value &amp; transfers</h2>';
     h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>Value</th><th>Gain</th><th>Changes</th><th>Per round</th></tr></thead><tbody>';
     M.managers.slice().sort(function (a, b) { return (b.currentValue || 0) - (a.currentValue || 0); }).forEach(function (m) {
       var rds = Math.max(1, m.played - 1);
@@ -690,7 +711,6 @@
     var d = $("sheet");
     if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); }
     d.querySelector(".sheet-inner").scrollTop = 0;
-    hydrateCharts(d);
   }
   function closeSheet() { var d = $("sheet"); if (d.open) { if (d.close) d.close(); else d.removeAttribute("open"); } }
 
@@ -814,15 +834,11 @@
 
   /* ---------------- burger menu ---------------- */
   var ICON = {
-    profile: '<circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />',
     records: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z" />',
     weekends: '<rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" />',
     honours: '<circle cx="12" cy="14" r="6" /><path d="M8.5 3h7l-2 5.2M8.5 3l2 5.2M12 11.5v5" />',
-    form: '<path d="M3 12h4l3-8 4 16 3-8h4" />',
     moves: '<path d="M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4" />',
     value: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1.5" />',
-    xp: '<path d="M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.9z" />',
-    h2h: '<circle cx="12" cy="12" r="9" /><path d="M8 9l8 6M16 9l-8 6" />',
     rules: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h11" />',
     settings: '<circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.14.6.66 1 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" />'
   };
@@ -871,7 +887,6 @@
     var light = t === "light" || (t === "system" && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches);
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", light ? "#f2f2f7" : "#050506");
-    if (S.model) render();
   }
   function settingsSheet() {
     var t = themeNow();
@@ -960,12 +975,16 @@
     }).join("");
     var on = $("subtabs").querySelector(".on");
     if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "center" });
-    v.innerHTML = pickSub(fn(), cur);
-    hydrateCharts(v);
+    try {
+      v.innerHTML = pickSub(fn(), cur);
+      hydrateCharts(v);
+    } catch (e) {
+      if (window.console) console.error(e);
+      v.innerHTML = '<div class="empty">This page couldn\'t be shown. Try another tab, or reopen the app.</div>';
+    }
   }
   function hydrateCharts(root) {
     root.querySelectorAll(".chartbox").forEach(function (box) {
-      if (box.dataset.only) return; // drawn by its sheet
       var k = box.dataset.chart;
       lineChart(box, k, { label: k });
     });
@@ -993,7 +1012,6 @@
       if (nr >= 1 && nr <= S.model.N) roundSheet(nr);
       return;
     }
-    if (t.tagName === "A" && t.hasAttribute("data-r")) e.preventDefault();
     if (t.hasAttribute("data-theme-set")) {
       applyTheme(t.getAttribute("data-theme-set"));
       t.parentNode.querySelectorAll("button").forEach(function (b) { var on = b === t; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
@@ -1049,11 +1067,21 @@
     var wait = Math.max(0, 2000 - (Date.now() - (window.F1F_T0 || Date.now())));
     setTimeout(function () { el.classList.add("done"); setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 600); }, wait);
   }
-  Promise.all([fetchData(), photosReady]).then(function (r) { setData(r[0]); route(); hideSplash(); }).catch(function (e) {
+  Promise.all([loadData(), photosReady]).then(function () { hideSplash(); route(); }, function (e) {
     hideSplash();
-    $("view").innerHTML = '<div class="empty">Couldn\'t load the league data (' + esc(e.message) + "). Pull to refresh or try again shortly.</div>";
+    if (window.console) console.error(e);
+    $("view").innerHTML = '<div class="empty">Couldn\'t load the league data. Check your connection and reopen the app.</div>';
     $("subline").textContent = "Offline";
   });
+  // a picture that can't load (offline, or gone) becomes the initials
+  document.addEventListener("error", function (e) {
+    var img = e.target;
+    if (!img || img.tagName !== "IMG" || !img.hasAttribute("data-ini")) return;
+    var span = document.createElement("span");
+    span.className = (img.className ? img.className + " " : "") + "noimg";
+    span.textContent = img.getAttribute("data-ini");
+    img.replaceWith(span);
+  }, true);
 
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("sw.js").catch(function () {});
