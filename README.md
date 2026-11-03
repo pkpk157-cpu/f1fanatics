@@ -7,7 +7,8 @@ stats around them:
 Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
 
 - **League**: Standings · Result (podium of each round, with ‹ › through the
-  season) · Race grid (every manager's points every round) · Winners · Form
+  season) · Race grid (every manager's points every round) · Winners · XP. Each
+  standings row shows that manager's form over the last five races
 - **Trends**: Position · Gap to the leader · Points per round · Team value
 - **Your team** (middle): your season. Overview · Team · Rounds · Picks (the
   drivers and constructors who scored for you) · Rivals (who's either side and

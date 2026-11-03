@@ -721,3 +721,11 @@ main { padding-top: 8px; }
 .wintbl td small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 500; }
 .wintbl .who { max-width: 30vw; }
 .wintbl td, .wintbl th { padding-left: 4px; padding-right: 4px; }
+
+/* last-5 form on the standings rows */
+.form.mini { gap: 2px; vertical-align: -3px; }
+.form.mini span { width: 16px; height: 16px; border-radius: 4px; font-size: 9.5px; box-shadow: none; }
+.srow .ssub { display: flex; align-items: center; gap: 6px; overflow: visible; }
+.sname b { padding-right: 4px; }
+.srow.plain .ssub .up { color: var(--up); }
+.srow.plain .ssub .down { color: var(--down); }

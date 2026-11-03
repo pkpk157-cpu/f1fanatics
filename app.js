@@ -8,7 +8,7 @@
   var OLD_TABS = { standings: "league", races: "league" };
   // each tab is split into sub-tabs; only the chosen one is drawn
   var SUBS = {
-    league: [["table", "Standings"], ["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"], ["prizes", "XP"], ["form", "Form"]],
+    league: [["table", "Standings"], ["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"], ["prizes", "XP"]],
     you: [["overview", "Overview"], ["team", "Team"], ["rounds", "Rounds"], ["picks", "Picks"], ["rivals", "Rivals"]],
     trends: [["rank", "Position"], ["gap", "Gap"], ["pts", "Points"], ["value", "Value"]],
     stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["form", "Form"], ["moves", "Movement"], ["value", "Value"]],
@@ -254,21 +254,12 @@
       h += standRow({
         pos: m.rank, medal: m.rank, me: isMe(m), lead: m === M.leader, attr: ' data-m="' + esc(m.id) + '"',
         name: managerName(m),
-        sub: esc(m.team) + (lastInfo ? " · " + esc(abbr(lastInfo.short)) + " " + fmt(m.last) : "") + (mv ? " " + mv : ""),
+        sub: '<span class="form mini" title="Finish in each of the last five rounds, newest on the right">' + m.formRanks.map(function (r) { return formChip(r, M.managers.length); }).join("") + "</span>" + (mv ? " " + mv : ""),
         pts: fmt(m.total), ptsSub: m.gapLeader ? "−" + fmt(m.gapLeader) : ""
       });
     });
-    h += '<p class="board-note">▲▼ = places moved in ' + esc(lastInfo ? lastInfo.name : "the last round") + ". Tap a manager for their season.</p></section>";
+    h += '<p class="board-note">Form: finish in each of the last five rounds, newest on the right. Gold, silver, bronze = 1st, 2nd, 3rd in the round; green = rest of the top third; red = bottom third. ▲▼ = places moved in ' + esc(lastInfo ? lastInfo.name : "the last round") + ". Tap a manager for their season.</p></section>";
 
-    // quick form glance
-    h += SUB("form");
-    h += '<section class="card"><h2>Form guide</h2><p class="sub">Finishing position within each of the last five rounds, newest on the right. Gold, silver, bronze = 1st, 2nd, 3rd in the round; green = rest of the top third; red = bottom third.</p><div class="rows ranked">';
-    M.managers.slice().sort(function (a, b) { return b.form5 - a.form5; }).forEach(function (m, i) {
-      h += '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + (i + 1) + '</div><div class="main"><div class="n">' + esc(m.name) +
-        '</div><div class="t">last 5 avg ' + fmt(m.form5) + " (" + signed(m.formVsAvg) + " vs season)" + '</div></div><div class="form">' +
-        m.formRanks.map(function (r) { return formChip(r, M.managers.length); }).join("") + "</div></div>";
-    });
-    h += "</div></section>";
     return h;
   }
   function d0(ri) { return ri ? S.data.league.season + " " + ri.name : "round " + S.model.N; }
