@@ -8,15 +8,14 @@
     // The published file the app reads. Built every ten minutes by
     // .github/workflows/update-data.yml; nobody exports anything by hand.
     dataUrl: "data.json",
-    // Prize money. Everyone pays the entry; each round's top scorer takes
-    // perRound (tied winners split it); what's left of the pot after every
-    // round's prize goes to the season's top three in the ratio split
-    // (tied places share the prizes for the places they cover).
-    prizes: {
-      entry: 5000,
-      perRound: 500,
-      split: [25, 18, 15],
-      currency: "₹"
+    // League XP. Everyone puts in `stake`; each race's top scorer earns
+    // `perRace` (tied winners share it); what's left of the pool after every
+    // race goes to the season's top three in the ratio `split` (tied places
+    // share the XP for the places they cover).
+    xp: {
+      stake: 5000,
+      perRace: 500,
+      split: [25, 18, 15]
     }
   };
   if (typeof module !== "undefined" && module.exports) module.exports = CONFIG;

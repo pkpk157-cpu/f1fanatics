@@ -102,9 +102,9 @@ test("verify catches a broken standings order", () => {
   assert.ok(F1F.verify(d).errors.length >= 1);
 });
 
-test("prize money: pot, race prizes and the 25:18:15 season split", () => {
+test("league XP: pool, race XP and the 25:18:15 season split", () => {
   const M = F1F.build(fixture());
-  const P = F1F.prizes(M, { entry: 5000, perRound: 500, split: [25, 18, 15], currency: "₹" });
+  const P = F1F.prizes(M, { entry: 5000, perRound: 500, split: [25, 18, 15] });
   assert.strictEqual(P.pot, 50000);
   assert.strictEqual(P.totalRounds, 23);
   assert.strictEqual(P.roundPool, 11500);
@@ -118,7 +118,7 @@ test("prize money: pot, race prizes and the 25:18:15 season split", () => {
   assert.strictEqual(P.by[M.managers[0].id].projected, 16595);
 });
 
-test("tied final places share their prizes", () => {
+test("tied final places share their XP", () => {
   const d = fixture();
   d.managers[1].total = d.managers[0].total; // 1st and 2nd level
   const M = F1F.build(d);

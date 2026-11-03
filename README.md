@@ -30,7 +30,8 @@ red position numbers, a bar in team colours, and the points in a red block
 the field, like F1's race-result graphic. Pictures are used for drivers and
 constructors only, never for managers. **1st is always gold, 2nd silver,
 3rd bronze**: standings, podiums, form chips, race-grid outlines, ranked
-lists and tables (`--p1`/`--p2`/`--p3` in `styles.css`). All of it has light and dark versions. Teams are shown as cards in the
+lists and tables (`--p1`/`--p2`/`--p3` in `styles.css`). XP is only ever
+shown as XP. All of it has light and dark versions. Teams are shown as cards in the
 style of F1 Fantasy's team builder and Team of the Week. Each round's page
 has a **Dream team**: the best five drivers and two constructors of that
 round, with the top driver boosted 2× and no cost cap.
@@ -42,16 +43,16 @@ demand. The app never loads images from F1. Anything not mirrored yet shows
 initials. The display type is Titillium Web (SIL Open Font License, in
 `fonts/`).
 
-## Prize money
+## League XP
 
-Set in `config.js` (`prizes`) and shown under **League › Prizes**, on **Your
+Set in `config.js` (`xp`) and shown under **League › XP**, on **Your
 team › Overview**, on the round winners board and in Settings:
 
-- Everyone pays ₹5,000 → a ₹50,000 pot (10 managers).
-- Each race's top scorer wins ₹500 (23 races = ₹11,500). Tied winners split it.
-- The rest, ₹38,500, goes to the season's top three in the ratio 25 : 18 : 15:
-  ₹16,595 / ₹11,948 / ₹9,957. Tied final places share the prizes for the
-  places they cover.
+- Everyone puts in 5,000 XP → a 50,000 XP pool (10 managers).
+- Each race's top scorer earns 500 XP (23 races = 11,500 XP). Tied winners share it.
+- The rest, 38,500 XP, goes to the season's top three in the ratio 25 : 18 : 15:
+  16,595 / 11,948 / 9,957 XP. Tied final places share the XP for the places
+  they cover.
 
 ## Where the data comes from
 

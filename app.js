@@ -8,7 +8,7 @@
   var OLD_TABS = { standings: "league", races: "league" };
   // each tab is split into sub-tabs; only the chosen one is drawn
   var SUBS = {
-    league: [["table", "Standings"], ["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"], ["prizes", "Prizes"], ["form", "Form"]],
+    league: [["table", "Standings"], ["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"], ["prizes", "XP"], ["form", "Form"]],
     you: [["overview", "Overview"], ["team", "Team"], ["rounds", "Rounds"], ["picks", "Picks"], ["rivals", "Rivals"]],
     trends: [["rank", "Position"], ["gap", "Gap"], ["pts", "Points"], ["value", "Value"]],
     stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["form", "Form"], ["moves", "Movement"], ["value", "Value"]],
@@ -36,7 +36,7 @@
     if (n == null || !isFinite(n)) return "–";
     return Number(n).toLocaleString("en-GB", { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
   }
-  function cur(v) { var c = (CONFIG.prizes && CONFIG.prizes.currency) || ""; return v == null ? "–" : (v < 0 ? "−" : "") + c + fmt(Math.abs(Math.round(v))); }
+  function cur(v, bare) { return v == null ? "–" : (v < 0 ? "−" : "") + fmt(Math.abs(Math.round(v))) + (bare ? "" : " XP"); }
   function signed(n, d) { if (n == null) return "–"; return (n > 0 ? "+" : n < 0 ? "−" : "±") + fmt(Math.abs(n), d); }
   function money(n) { return n == null ? "–" : "$" + fmt(n, 1) + "m"; }
   // 1st gold, 2nd silver, 3rd bronze — everywhere a position is shown
@@ -195,7 +195,7 @@
     var changed = !S.data || S.data.generatedAt !== d.generatedAt || !!S.data._offline !== !!d._offline;
     S.data = d;
     S.model = F1F.build(d);
-    S.prizes = F1F.prizes(S.model, CONFIG.prizes);
+    S.prizes = CONFIG.xp ? F1F.prizes(S.model, { entry: CONFIG.xp.stake, perRound: CONFIG.xp.perRace, split: CONFIG.xp.split }) : null;
     S.fetchedAt = Date.now();
     if (S.me && !byId(S.me)) S.me = null;
     return changed;
@@ -313,25 +313,25 @@
     var c = P.cfg, h = SUB("prizes");
     var medals = ["1st", "2nd", "3rd"];
     h += '<section class="hero">' +
-      tile("The pot", cur(P.pot), P.players + " × " + cur(c.entry)) +
-      tile("Race prizes", cur(P.roundPool), P.totalRounds + " races × " + cur(c.perRound)) +
-      tile("Paid so far", cur(P.roundsPaid), M.N + " of " + P.totalRounds + " races") +
-      tile("Still to win", cur(P.roundsLeft * c.perRound), P.roundsLeft + " race" + (P.roundsLeft === 1 ? "" : "s") + " + the season") + "</section>";
-    h += '<section class="card"><h2>Season prizes</h2><p class="sub">What\'s left after the race prizes (' + cur(P.pot) + " − " + cur(P.roundPool) + " = " + cur(P.seasonPool) + "), split " + c.split.join(" : ") + " between the top three at the end of the season.</p>" +
+      tile("XP pool", cur(P.pot), P.players + " × " + cur(c.entry)) +
+      tile("Race XP", cur(P.roundPool), P.totalRounds + " races × " + cur(c.perRound)) +
+      tile("Awarded so far", cur(P.roundsPaid), M.N + " of " + P.totalRounds + " races") +
+      tile("Still to earn", cur(P.roundsLeft * c.perRound), P.roundsLeft + " race" + (P.roundsLeft === 1 ? "" : "s") + " + the season") + "</section>";
+    h += '<section class="card"><h2>Season XP</h2><p class="sub">What\'s left of the pool after race XP (' + cur(P.pot) + " − " + cur(P.roundPool) + " = " + cur(P.seasonPool) + "), split " + c.split.join(" : ") + " between the top three at the end of the season.</p>" +
       '<div class="prize3">' + P.seasonPrizes.map(function (v, i) {
-        return '<div class="pz pz' + (i + 1) + '"><span class="pzn">' + medals[i] + "</span><b>" + cur(v) + "</b><small>" + c.split[i] + " parts</small></div>";
+        return '<div class="pz pz' + (i + 1) + '"><span class="pzn">' + medals[i] + "</span><b>" + cur(v, true) + "</b><small>XP · " + c.split[i] + " parts</small></div>";
       }).join("") + "</div></section>";
     var rows = M.managers.slice().sort(function (a, b) { return P.by[b.id].total - P.by[a.id].total || a.rank - b.rank; });
-    h += '<section class="card"><h2>Winnings</h2><p class="sub">Race prizes won so far, plus the season prize each would take if the season ended today (gold, silver, bronze). Net is after the ' + cur(c.entry) + " entry.</p>";
-    h += '<div class="tblwrap"><table class="wintbl"><thead><tr><th class="l">Manager</th><th>Races</th><th title="Season prize if it ended now">Season</th><th>Net</th></tr></thead><tbody>';
+    h += '<section class="card"><h2>XP table</h2><p class="sub">Race XP earned so far, plus the season XP each would take if the season ended today (gold, silver, bronze). Net is after the ' + cur(c.entry) + " each put in.</p>";
+    h += '<div class="tblwrap"><table class="wintbl"><thead><tr><th class="l">Manager</th><th>Race XP</th><th title="Season XP if it ended now">Season</th><th>Net XP</th></tr></thead><tbody>';
     rows.forEach(function (m) {
       var x = P.by[m.id], shared = x.raceWins.some(function (w) { return w.shared; });
       h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) +
-        "<td>" + cur(x.race) + "<small>" + x.raceWins.length + " won" + (shared ? "*" : "") + "</small></td>" +
-        '<td class="' + "t" + medal(m.rank) + '">' + (x.projected ? cur(x.projected) : "–") + "</td>" +
-        '<td class="num ' + (x.net >= 0 ? "up" : "down") + '">' + (x.net >= 0 ? "+" : "") + cur(x.net) + "<small>won " + cur(x.total) + "</small></td></tr>";
+        "<td>" + cur(x.race, true) + "<small>" + x.raceWins.length + " win" + (x.raceWins.length === 1 ? "" : "s") + (shared ? "*" : "") + "</small></td>" +
+        '<td class="' + "t" + medal(m.rank) + '">' + (x.projected ? cur(x.projected, true) : "–") + "</td>" +
+        '<td class="num ' + (x.net >= 0 ? "up" : "down") + '">' + (x.net >= 0 ? "+" : "") + cur(x.net, true) + "<small>earned " + cur(x.total, true) + "</small></td></tr>";
     });
-    h += '</tbody></table></div><p class="sub" style="margin:8px 0 0">* includes a tied round, where the winners split the ' + cur(c.perRound) + '. Amounts are rounded to the nearest ' + esc(c.currency || "") + "1.</p></section>";
+    h += '</tbody></table></div><p class="sub" style="margin:8px 0 0">* includes a tied round, where the winners share the ' + cur(c.perRound) + ". Rounded to whole XP.</p></section>";
     return h;
   }
 
@@ -756,9 +756,9 @@
       (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b><small>" + esc(m.team) + '</small></div><div class="you-pts"><b>' + fmt(m.total) + "</b><small>" +
       (m.gapLeader ? "−" + fmt(m.gapLeader) + " to 1st" : "leading") + "</small></div></section>";
     var W = S.prizes && S.prizes.by[m.id];
-    var money2 = W ? '<section class="hero">' + tile("Race winnings", cur(W.race), W.raceWins.length + " race" + (W.raceWins.length === 1 ? "" : "s") + " won") +
-      tile("If it ended now", W.projected ? cur(W.projected) : "–", W.projected ? ordinal(m.rank) + " place prize" : "outside the top three") +
-      tile("Total", cur(W.total), "race + season prize") + tile("Net", (W.net >= 0 ? "+" : "") + cur(W.net), "after the " + cur(S.prizes.cfg.entry) + " entry") + "</section>" : "";
+    var money2 = W ? '<section class="hero">' + tile("Race XP", cur(W.race), W.raceWins.length + " race" + (W.raceWins.length === 1 ? "" : "s") + " won") +
+      tile("If it ended now", W.projected ? cur(W.projected) : "–", W.projected ? "season XP for " + ordinal(m.rank) : "outside the top three") +
+      tile("Total XP", cur(W.total), "race + season XP") + tile("Net XP", (W.net >= 0 ? "+" : "") + cur(W.net), "after the " + cur(S.prizes.cfg.entry) + " put in") + "</section>" : "";
     return head +
       SUB("overview") + P.tiles + money2 +
       '<section class="card"><h2>Your league position</h2><p class="sub">You in blue, the leader in gold.</p><div class="chartbox" data-chart="rank"></div></section>' +
@@ -841,13 +841,13 @@
     var PZ = S.prizes;
     if (PZ) {
       var c = PZ.cfg;
-      h += '<div class="group-h">League prizes</div><div class="group card rules" style="padding:0"><details open><summary>How the pot is shared</summary><div class="body"><table class="rtable"><tbody>' +
-        "<tr><td>Entry</td><td>" + cur(c.entry) + " each × " + PZ.players + " = " + cur(PZ.pot) + "</td></tr>" +
-        "<tr><td>Each race</td><td>" + cur(c.perRound) + " to the top scorer (ties split it)</td></tr>" +
+      h += '<div class="group-h">League XP</div><div class="group card rules" style="padding:0"><details open><summary>How XP is shared</summary><div class="body"><table class="rtable"><tbody>' +
+        "<tr><td>Everyone puts in</td><td>" + cur(c.entry) + " × " + PZ.players + " = " + cur(PZ.pot) + "</td></tr>" +
+        "<tr><td>Each race</td><td>" + cur(c.perRound) + " to the top scorer (ties share it)</td></tr>" +
         "<tr><td>All " + PZ.totalRounds + " races</td><td>" + cur(PZ.roundPool) + "</td></tr>" +
-        "<tr><td>Season pot</td><td>" + cur(PZ.seasonPool) + ", split " + c.split.join(" : ") + "</td></tr>" +
+        "<tr><td>Season XP</td><td>" + cur(PZ.seasonPool) + ", split " + c.split.join(" : ") + "</td></tr>" +
         "<tr><td>1st / 2nd / 3rd</td><td>" + PZ.seasonPrizes.map(cur).join(" / ") + "</td></tr>" +
-        "</tbody></table><p style=\"margin-top:8px\">Tied final places share the prizes for the places they cover.</p></div></details></div>";
+        "</tbody></table><p style=\"margin-top:8px\">Tied final places share the XP for the places they cover.</p></div></details></div>";
     }
     if (R) {
       h += '<div class="group-h">Game rules · F1 Fantasy 2026</div><div class="group card rules" style="padding:0">' +
