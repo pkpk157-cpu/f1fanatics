@@ -5,36 +5,56 @@
 # sometimes for hours. So this job pokes the updater every ten minutes for
 # the best part of an hour, then hands over to a fresh copy of itself. The
 # chain keeps time; GitHub's schedule below only restarts it if it breaks.
-# Only one chain exists at a time (concurrency, cancel-in-progress).
+#
+# One chain at a time: the next heartbeat waits for this one to finish
+# (concurrency without cancelling), and a scheduled backstop that arrives
+# while a chain is alive just takes the waiting slot, so it never kills the
+# running heartbeat or starts a second chain.
 #
 # It also watches its own work: if the updater has not finished a successful
 # run for 45 minutes, this run fails and GitHub emails the repository owner.
+#
+# The clock stops by itself once the season is over (scripts/season-over.js:
+# three days after the last race). Running it by hand afterwards does one
+# check and stops.
 #
 # Needs one secret, CRON_PAT: a workflow cannot start another workflow with
 # the built-in GITHUB_TOKEN (GitHub blocks it to prevent runaway loops). Make
 # a fine-grained token with "Actions: read and write" on this repository and
 # save it under Settings → Secrets and variables → Actions as CRON_PAT.
-#
-# Actions minutes are free and unlimited on a public repository. On a private
-# one this uses roughly 1,500 minutes a month of the 2,000 free.
 # ---------------------------------------------------------------------------
 name: Heartbeat
 on:
   schedule:
-    - cron: "7,27,47 * * * *"
+    - cron: "7 * * * *"
   workflow_dispatch: {}
 permissions:
   contents: read
   actions: write
 concurrency:
   group: heartbeat
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   tick:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            data.json
+            scripts/season-over.js
+          sparse-checkout-cone-mode: false
+
+      - name: Is the season still on?
+        id: season
+        run: |
+          OVER=$(node scripts/season-over.js)
+          echo "over=$OVER" >> "$GITHUB_OUTPUT"
+          if [ "$OVER" = "true" ]; then echo "The season is over: the clock stops here."; fi
+
       - name: Check the key that keeps the chain alive
+        if: steps.season.outputs.over != 'true'
         env:
           PAT: ${{ secrets.CRON_PAT }}
         run: |
@@ -46,15 +66,16 @@ jobs:
           fi
 
       - name: Poke the updater every ten minutes
+        if: steps.season.outputs.over != 'true'
         env:
           GH_TOKEN: ${{ secrets.CRON_PAT }}
           REPO: ${{ github.repository }}
           REF: ${{ github.ref_name }}
         run: |
           set -u
-          # A run stuck "waiting" holds the pages lock every later update
-          # queues behind. Cancel any update or deploy unfinished after 25
-          # minutes (a normal one takes under two).
+          # A run stuck "waiting" holds the lock every later run queues
+          # behind. Cancel any update or deploy unfinished after 25 minutes
+          # (a normal one takes under two).
           heal() {
             for wf in update-data.yml pages.yml; do
               ids=$(gh api "repos/$REPO/actions/workflows/$wf/runs?per_page=30" --jq '.workflow_runs[]
@@ -76,6 +97,7 @@ jobs:
           done
 
       - name: Check the updater is actually succeeding
+        if: steps.season.outputs.over != 'true'
         env:
           GH_TOKEN: ${{ secrets.CRON_PAT }}
           REPO: ${{ github.repository }}
@@ -94,9 +116,9 @@ jobs:
           fi
 
       - name: Hand over to the next heartbeat
-        # Runs even if the watchdog failed: a broken updater must not also
-        # stop the clock.
-        if: always()
+        # Runs even if the watchdog failed (a broken updater must not also
+        # stop the clock), but not if this run was cancelled by hand.
+        if: ${{ !cancelled() && steps.season.outputs.over != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.CRON_PAT }}
           REPO: ${{ github.repository }}

@@ -292,7 +292,7 @@
     var roundInfo = rounds.map(function (r) {
       var played = managers.filter(function (m) { return m.pts[r] != null; });
       var vals = played.map(function (m) { return m.pts[r]; });
-      var hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals);
+      var hi = vals.length ? Math.max.apply(null, vals) : null, lo = vals.length ? Math.min.apply(null, vals) : null;
       var s = sched[r] || {};
       return {
         round: r, name: s.name || "Round " + r, short: s.short || ("R" + r), sprint: !!s.sprint, date: s.race || null,
@@ -385,7 +385,7 @@
     var by = {};
     M.managers.forEach(function (m) { by[m.id] = { m: m, race: 0, raceWins: [], projected: 0 }; });
     var payouts = M.roundInfo.map(function (ri) {
-      var each = cfg.perRound / ri.winners.length;
+      var each = ri.winners.length ? cfg.perRound / ri.winners.length : 0;
       ri.winners.forEach(function (w) { by[w.id].race += each; by[w.id].raceWins.push({ round: ri.round, amount: each, shared: ri.winners.length > 1 }); });
       return { round: ri.round, winners: ri.winners, each: each };
     });

@@ -34,19 +34,25 @@ const MAX_ROUNDS = 30;
 
 class Unavailable extends Error {}
 
+// One run must never hang on a slow F1: past this budget it gives up and the
+// live data stays (a skip, not a failure).
+const T_START = Date.now(), BUDGET_MS = 4 * 60 * 1000;
+
 // The feeds sit behind a CDN; a query string asks it for a fresh copy instead
 // of whatever it cached up to a few minutes ago.
 const bust = () => "?_=" + Math.floor(Date.now() / 60000);
 
-async function get(url, { allow403 = false } = {}) {
+// allowMissing: a 403 or 404 means "not published yet" and returns null
+async function get(url, { allowMissing = false } = {}) {
   let last;
   for (let attempt = 1; attempt <= 3; attempt++) {
+    if (Date.now() - T_START > BUDGET_MS) throw new Unavailable("F1 is too slow right now (over " + BUDGET_MS / 60000 + " minutes)");
     try {
       const res = await fetch(url + bust(), {
         headers: { "accept": "application/json", "user-agent": "f1fanatics-league-tracker" },
-        signal: AbortSignal.timeout(20000)
+        signal: AbortSignal.timeout(15000)
       });
-      if (res.status === 403 && allow403) return null;
+      if ((res.status === 403 || res.status === 404) && allowMissing) return null;
       if (!res.ok) throw new Unavailable(url + " answered " + res.status);
       const text = await res.text();
       try { return JSON.parse(text); }
@@ -60,7 +66,7 @@ async function get(url, { allow403 = false } = {}) {
 }
 
 const dec = (s) => { try { return decodeURIComponent(String(s || "")); } catch (e) { return String(s || ""); } };
-const feedTime = (j) => { const t = (j && (j.FeedTime || (j.Data && j.Data.FeedTime))) || null; return t && t.UTCTime ? new Date(t.UTCTime + " UTC").toISOString() : null; };
+const feedTime = (j) => { const t = (j && (j.FeedTime || (j.Data && j.Data.FeedTime))) || null; const d = t && t.UTCTime ? new Date(t.UTCTime + " UTC") : null; return d && isFinite(d) ? d.toISOString() : null; };
 
 function parseSchedule(j) {
   const rows = (j && j.Data && (j.Data.Value || j.Data.fixtures)) || [];
@@ -95,15 +101,33 @@ async function main() {
   const board = standings && standings.Value && standings.Value.leaderboard;
   if (!Array.isArray(board) || !board.length) throw new Unavailable("the standings feed came back empty");
 
-  const schedJson = await get(`${BASE}/schedule/raceday_en.json`);
-  const schedule = parseSchedule(schedJson);
+  for (const e of board) {
+    if (e.social_id == null || !isFinite(Number(e.cur_points)) || !isFinite(Number(e.cur_rank)) || e.cur_points === "" || e.cur_rank === "") {
+      throw new Unavailable("the standings feed has a row without points or a rank");
+    }
+  }
 
-  // Rounds raced so far: list_2 answers 403 until a round has been scored.
+  let live = null;
+  try { live = JSON.parse(fs.readFileSync(OUT, "utf8")); } catch (e) { /* first run */ }
+  if (live && !(live.league && live.league.id === LEAGUE)) live = null;
+
+  // An empty calendar is a feed hiccup: keep the one already published.
+  const schedJson = await get(`${BASE}/schedule/raceday_en.json`);
+  let schedule = parseSchedule(schedJson);
+  if (!schedule.length) {
+    if (live && live.schedule && live.schedule.length) schedule = live.schedule;
+    else throw new Unavailable("the calendar feed came back empty");
+  }
+  const LAST = Math.min(MAX_ROUNDS, schedule.length);
+
+  // Rounds raced so far: list_2 answers 403 (or 404, or an empty board) until
+  // a round has been scored. Never beyond the calendar.
   const rounds = [];
-  for (let r = 1; r <= MAX_ROUNDS; r++) {
-    const j = await get(`${BASE}/leaderboard/privateleague/list_2_${LEAGUE}_${r}_1.json`, { allow403: true });
-    if (!j) break;
-    rounds.push(j.Value && j.Value.leaderboard || []);
+  for (let r = 1; r <= LAST; r++) {
+    const j = await get(`${BASE}/leaderboard/privateleague/list_2_${LEAGUE}_${r}_1.json`, { allowMissing: true });
+    const lb = j && j.Value && Array.isArray(j.Value.leaderboard) ? j.Value.leaderboard : [];
+    if (!lb.length) break;
+    rounds.push(lb);
   }
   const N = rounds.length;
 
@@ -111,11 +135,10 @@ async function main() {
   // if F1 has set them.
   const prices = {}, assetPoints = {}, assets = {};
   let ownershipGlobal = {}, driversTime = null;
-  for (let r = 1; r <= MAX_ROUNDS; r++) {
-    const j = await get(`${BASE}/drivers/${r}_en.json`, { allow403: true });
-    if (!j) { if (r <= N) throw new Unavailable("no drivers feed for round " + r + ", which has been raced"); break; }
-    const list = (j.Data && j.Data.Value) || [];
-    if (!list.length) break;
+  for (let r = 1; r <= LAST; r++) {
+    const j = await get(`${BASE}/drivers/${r}_en.json`, { allowMissing: true });
+    const list = (j && j.Data && Array.isArray(j.Data.Value)) ? j.Data.Value : [];
+    if (!list.length) { if (r <= N) throw new Unavailable("no drivers feed for round " + r + ", which has been raced"); break; }
     prices[r] = {};
     if (r <= N) assetPoints[r] = {};
     ownershipGlobal = {};
@@ -219,12 +242,10 @@ async function main() {
   data.checks = F1F.verify(data);
 
   // Shrinking history means a feed hiccup, not F1 un-racing a Grand Prix.
-  let live = null;
-  try { live = JSON.parse(fs.readFileSync(OUT, "utf8")); } catch (e) { /* first run */ }
-  if (live && live.league && live.league.id === LEAGUE && (live.roundsPlayed || 0) > N) {
+  if (live && (live.roundsPlayed || 0) > N) {
     throw new Unavailable("F1 returned " + N + " rounds but " + live.roundsPlayed + " are already published — keeping those");
   }
-  if (live && live.league && live.league.id === LEAGUE && live.managers && live.managers.length > managers.length + 2) {
+  if (live && live.managers && live.managers.length > managers.length + 2) {
     throw new Unavailable("F1 returned " + managers.length + " managers, " + live.managers.length + " are already published — keeping those");
   }
 

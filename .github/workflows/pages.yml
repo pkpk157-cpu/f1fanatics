@@ -1,30 +1,45 @@
-# Deploys the app to GitHub Pages on every push to main.
+# Deploys the app to GitHub Pages: on every push to main, when asked (the
+# photos workflow), and from the data updater after it commits new data.
+# Always deploys the newest main, so a deploy that waited in the queue can
+# never put older files back live. Nothing deploys unless the checks pass.
 # One-time setup: Settings → Pages → Source: "GitHub Actions".
 name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
   workflow_dispatch: {}
+  workflow_call: {}
 permissions:
   contents: read
   pages: write
   id-token: write
-concurrency:
-  group: pages
-  cancel-in-progress: false
 jobs:
   deploy:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url || steps.deploy2.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - run: rm -rf tests .github
+        with:
+          ref: main
+      - name: Checks (sources parse, service worker stamped, engine tests)
+        run: |
+          node scripts/check-sources.js
+          node tests/compute.test.js
+      # The tests are not part of the app; trim them from this runner's
+      # checkout (never the repository) before it is packed for Pages.
+      - run: rm -rf tests .github scripts
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: "."
+      # Pages now and then refuses a deploy made while it still considers the
+      # previous one in progress. Ask once more after a pause.
       - id: deployment
         uses: actions/deploy-pages@v4
         continue-on-error: true

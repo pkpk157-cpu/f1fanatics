@@ -1,44 +1,47 @@
-# Fetches the league from F1 Fantasy's public feeds, checks it, and publishes
-# data.json to GitHub Pages — in one job, because a commit made with the
-# built-in GITHUB_TOKEN does not trigger the separate Pages workflow.
+# Fetches the league from F1 Fantasy's public feeds, checks it, commits
+# data.json when F1's numbers changed, and deploys it to GitHub Pages (a
+# commit made with the built-in GITHUB_TOKEN does not trigger pages.yml).
 #
 # Started every ten minutes by heartbeat.yml (the clock). The schedule below
-# is only a backstop: GitHub delays and drops scheduled runs badly.
+# is only a backstop: GitHub delays and drops scheduled runs badly. After the
+# season the backstop does nothing (scripts/season-over.js).
 #
-# data.json is committed only when F1's numbers changed, so between races
-# most runs fetch, find nothing new, and stop without a commit or a deploy.
+# Two jobs, so only a real deploy queues on the Pages lock: the fetch has
+# its own lock and can never push a deploy of your code out of the queue.
 name: Update F1 data
 on:
   schedule:
     - cron: "13,43 * * * *"
   workflow_dispatch: {}
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-concurrency:
-  # Shared with the Pages deploy. Never cancel: a deploy queued mid-fetch
-  # waits ~20s rather than killing a fresh update.
-  group: pages
-  cancel-in-progress: false
+  contents: read
 jobs:
   update:
     # Pinned for the season, so the runner image doesn't change mid-season.
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url || steps.deploy2.outputs.page_url }}
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: update-data
+      cancel-in-progress: false
+    outputs:
+      pushed: ${{ steps.commit.outputs.pushed }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+      - name: Is the season still on?
+        id: season
+        if: github.event_name == 'schedule'
+        run: echo "over=$(node scripts/season-over.js)" >> "$GITHUB_OUTPUT"
       # F1 down or busy is not a failure: the script keeps the data already
       # live, says why, and sets "skip", so nothing below runs and the run
       # stays green. A fault in the script itself still fails the run.
       - name: Fetch F1 data
         id: fetch
+        if: steps.season.outputs.over != 'true'
         run: node scripts/fetch-data.js
       - name: F1 unavailable, the last data stays live
         if: steps.fetch.outputs.skip == 'true'
@@ -57,8 +60,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Two runs can overlap (backstop + heartbeat). Each attempt starts
-          # again from what is live and only publishes if this fetch is newer.
+          # Each attempt starts again from what is live and only publishes
+          # if this fetch is newer.
           cp data.json /tmp/fresh.json
           MSG="Update F1 data ($(date -u +%Y-%m-%dT%H:%MZ))"
           stamp() { node -p 'try { JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).generatedAt || "" } catch (e) { "" }' "$1"; }
@@ -84,24 +87,12 @@ jobs:
           done
           echo "could not push data.json after 5 attempts" >&2
           exit 1
-      # The tests are not part of the app; trim them from this runner's
-      # checkout (never the repository) before it is packed for Pages.
-      - if: steps.commit.outputs.pushed == 'true'
-        run: rm -rf tests .github
-      - if: steps.commit.outputs.pushed == 'true'
-        uses: actions/configure-pages@v5
-      - if: steps.commit.outputs.pushed == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: "."
-      # Pages now and then refuses a deploy made while it still considers the
-      # previous one in progress. Ask once more after a pause.
-      - id: deployment
-        if: steps.commit.outputs.pushed == 'true'
-        uses: actions/deploy-pages@v4
-        continue-on-error: true
-      - if: steps.deployment.outcome == 'failure'
-        run: echo "deploy refused, asking again in 60s"; sleep 60
-      - id: deploy2
-        if: steps.deployment.outcome == 'failure'
-        uses: actions/deploy-pages@v4
+
+  deploy:
+    needs: update
+    if: needs.update.outputs.pushed == 'true'
+    uses: ./.github/workflows/pages.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
