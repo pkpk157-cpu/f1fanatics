@@ -807,6 +807,43 @@
     openSheet(h);
   }
 
+  /* ---------------- burger menu ---------------- */
+  var STATS_NOTES = {
+    records: "Highest and lowest single rounds",
+    weekends: "Each manager's best and worst, and consistency",
+    honours: "Round wins, top threes, last places",
+    form: "Last 3 and 5 rounds against the season",
+    moves: "Biggest climbs and drops, highs and lows",
+    value: "Team value and picks changed"
+  };
+  function drawerHtml() {
+    var me = S.me && byId(S.me), h = "";
+    h += '<div class="dr-head"><img src="icon-192.png" alt="" width="40" height="40" /><div><b>' + esc((S.data.league && S.data.league.name) || CONFIG.leagueName) + "</b><small>" +
+      esc(S.data.league.season) + " · league " + esc(S.data.league.id) + '</small></div><button class="iconbtn" id="drawerClose" aria-label="Close menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button></div>';
+    h += '<div class="group-h">Your team</div><div class="group card dr-team">';
+    if (me) {
+      var n = lastFirst(me);
+      h += '<a class="dr-me" href="#you" data-close="1"><span class="dr-pos t' + medal(me.rank) + '">' + me.rank + '</span><span class="dr-name">' + (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) +
+        "</b><small>" + esc(me.team) + " · " + fmt(me.total) + " pts</small></span><span class=\"chev\">›</span></a>";
+    } else {
+      h += '<p class="sub" style="margin:0 0 8px">Pick your team to see your season and be highlighted everywhere.</p>';
+    }
+    h += teamSelect() + "</div>";
+    var cur = S.tab === "stats" ? S.sub.stats : null;
+    h += '<div class="group-h">Stats</div><div class="group card" style="padding:0">' + SUBS.stats.map(function (x) {
+      return '<a class="item dr-link' + (x[0] === cur ? " on" : "") + '" href="#stats/' + x[0] + '" data-close="1"><span class="lab">' + esc(x[1]) + "<small>" + esc(STATS_NOTES[x[0]] || "") + '</small></span><span class="chev">›</span></a>';
+    }).join("") + "</div>";
+    h += '<div class="dr-foot"><div class="group card" style="padding:0"><button class="item" data-open="settings"><span class="dr-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.14.6.66 1 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" /></svg></span>' +
+      '<span class="lab">Settings<small>Appearance, game rules, league XP, about the data</small></span><span class="chev">›</span></button></div></div>';
+    return h;
+  }
+  function openDrawer() {
+    var d = $("drawer");
+    $("drawerBody").innerHTML = drawerHtml();
+    if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); }
+  }
+  function closeDrawer() { var d = $("drawer"); if (d.open) { if (d.close) d.close(); else d.removeAttribute("open"); } }
+
   /* ---------------- settings ---------------- */
   function themeNow() { return document.documentElement.getAttribute("data-theme") || "dark"; }
   function applyTheme(t) {
@@ -821,8 +858,6 @@
     var M = S.model, R = window.F1F_RULES, t = themeNow();
     var h = '<h1>Settings</h1><p class="lede">' + esc((S.data.league && S.data.league.name) || CONFIG.leagueName) + " · league " + esc(S.data.league.id) + "</p>";
 
-    h += '<div class="group-h">Your team</div><div class="group card" style="padding:14px">' +
-      teamSelect() + '<p class="sub" style="margin:8px 2px 0">You\'re highlighted in every table and chart. Saved on this device only.</p></div>';
 
     h += '<div class="group-h">Appearance</div><div class="group card" style="padding:14px"><div class="seg" role="radiogroup" aria-label="Theme">' +
       [["dark", "Dark"], ["light", "Light"], ["system", "Auto"]].map(function (o) {
@@ -916,6 +951,9 @@
   }
 
   document.addEventListener("click", function (e) {
+    if (e.target.closest("#drawerClose")) { closeDrawer(); return; }
+    var link = e.target.closest("#drawer a[data-close]");
+    if (link) { closeDrawer(); return; } // the link itself navigates
     var t = e.target.closest("[data-focus],[data-m],[data-r],[data-a],[data-theme-set],[data-open],[data-round-nav]");
     if (!t) return;
     if (t.hasAttribute("data-round-nav")) {
@@ -934,7 +972,12 @@
       t.parentNode.querySelectorAll("button").forEach(function (b) { var on = b === t; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
       return;
     }
-    if (t.hasAttribute("data-open")) { if (t.getAttribute("data-open") === "info") infoSheet(); return; }
+    if (t.hasAttribute("data-open")) {
+      var what = t.getAttribute("data-open");
+      if (what === "settings") { closeDrawer(); settingsSheet(); }
+      else if (what === "info") infoSheet();
+      return;
+    }
     if (t.hasAttribute("data-focus")) {
       var id = t.getAttribute("data-focus");
       S.focus = S.focus === id ? null : id;
@@ -946,11 +989,15 @@
     else if (t.hasAttribute("data-a")) assetSheet(t.getAttribute("data-a"));
   });
   document.addEventListener("change", function (e) {
-    if (e.target.classList && e.target.classList.contains("meSelect")) { S.me = e.target.value || null; save("me", S.me); render(); }
+    if (e.target.classList && e.target.classList.contains("meSelect")) {
+      S.me = e.target.value || null; save("me", S.me); render();
+      if ($("drawer").open) $("drawerBody").innerHTML = drawerHtml();
+    }
   });
   $("sheetClose").addEventListener("click", closeSheet);
   $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) closeSheet(); });
-  $("settingsBtn").addEventListener("click", function () { if (S.model) settingsSheet(); });
+  $("menuBtn").addEventListener("click", function () { if (S.model) openDrawer(); });
+  $("drawer").addEventListener("click", function (e) { if (e.target === $("drawer")) closeDrawer(); });
   if (window.matchMedia) {
     var mq = window.matchMedia("(prefers-color-scheme: light)");
     var onScheme = function () { if (themeNow() === "system") applyTheme("system"); };

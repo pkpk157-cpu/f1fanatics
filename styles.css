@@ -189,7 +189,7 @@ button { font: inherit; color: inherit; }
   position: fixed; z-index: 40; left: 0; right: 0; bottom: 0;
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding: 4px max(8px, env(safe-area-inset-left)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-right));
-  display: grid; grid-template-columns: repeat(5, minmax(0, 104px)); justify-content: center; align-items: center;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 120px)); justify-content: center; align-items: center;
   background: var(--tabbar-bg); border-radius: 0;
   -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
   border: 0; border-top: 1px solid var(--glass-line);
@@ -729,3 +729,38 @@ main { padding-top: 8px; }
 .sname b { padding-right: 4px; }
 .srow.plain .ssub .up { color: var(--up); }
 .srow.plain .ssub .down { color: var(--down); }
+
+/* ---------- burger menu (side drawer) ---------- */
+.drawer {
+  padding: 0; margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(88vw, 380px); max-width: none;
+  border: 0; border-left: 1px solid var(--glass-line); border-radius: 22px 0 0 22px; color: var(--text);
+  background: var(--sheet-bg); -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%);
+  box-shadow: -20px 0 50px rgba(0,0,0,.35);
+}
+.drawer[open] { animation: drawer-in .22s ease-out; }
+@keyframes drawer-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer::backdrop { background: rgba(0, 0, 0, 0.45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.drawer-inner {
+  min-height: 100%; display: flex; flex-direction: column; overflow-y: auto;
+  padding: calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 16px);
+}
+.dr-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.dr-head img { border-radius: 11px; box-shadow: 0 4px 14px rgba(225, 6, 0, .35); }
+.dr-head > div { flex: 1; min-width: 0; }
+.dr-head b { display: block; font-family: var(--display); font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 18px; }
+.dr-head small { display: block; color: var(--muted); font-size: 12px; }
+.dr-team { padding: 12px; }
+.dr-me { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; margin-bottom: 10px; }
+.dr-pos { font-family: var(--display); font-weight: 900; font-size: 34px; line-height: 1; min-width: 34px; text-align: center; }
+.dr-pos:not([class*="tm"]) { color: transparent; -webkit-text-stroke: 1.2px var(--red-hi); }
+.dr-name { flex: 1; min-width: 0; font-family: var(--display); text-transform: uppercase; line-height: 1.05; }
+.dr-name .fn { display: block; font-weight: 700; font-size: 12px; font-style: italic; color: var(--muted); }
+.dr-name b { display: block; font-weight: 900; font-style: italic; font-size: 21px; padding-right: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr-name small { display: block; font-family: var(--font); text-transform: none; font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.group a.item { text-decoration: none; color: inherit; }
+.group a.item:active { background: var(--glass-2); }
+.dr-link.on { box-shadow: inset 3px 0 0 var(--red); background: var(--accent-soft); }
+.dr-foot { margin-top: auto; padding-top: 14px; }
+.dr-foot .group { margin-bottom: 0; }
+.dr-ic { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--fill); flex: none; }
+.dr-ic svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

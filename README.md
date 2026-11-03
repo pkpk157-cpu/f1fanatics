@@ -4,7 +4,7 @@ A static, installable (PWA) tracker for the **F1 Fanatics** F1 Fantasy private
 league (league `1583310`), 2026 season. Classic overall standings, with the
 stats around them:
 
-Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
+Four tabs in a bar docked to the bottom, each split into sub-tabs at the top:
 
 - **League**: Standings · Result (podium of each round, with ‹ › through the
   season) · Race grid (every manager's points every round) · Winners · XP. Each
@@ -13,13 +13,16 @@ Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
 - **Your team** (middle): your season. Overview · Team · Rounds · Picks (the
   drivers and constructors who scored for you) · Rivals (who's either side and
   your head-to-head record against everyone)
-- **Stats**: Records · Weekends · Honours · Form · Movement · Value
 - **Picks**: Template · Drivers · Constructors · Differentials · Trusted
+
+The **menu** (≡, top right) has your team and its dropdown at the top, every
+**Stats** section (Records · Weekends · Honours · Form · Movement · Value) in
+the middle, and **Settings** at the bottom.
 
 Tap any manager, round, driver or constructor for its page.
 
-**Settings** (the gear, top right) has a dropdown to select your own team, which
-highlights you everywhere and is saved on that device only. It also has Dark, Light and Auto themes (dark is the default),
+Choosing your team (top of the menu) highlights you everywhere and is saved
+on that device only. **Settings** has Dark, Light and Auto themes (dark is the default),
 the F1 Fantasy 2026 game rules (scoring, chips, transfers, prices, in
 `rules.js`, taken from F1 Fantasy's official rules text), and the About the data page.
 
