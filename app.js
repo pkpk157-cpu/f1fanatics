@@ -9,11 +9,11 @@
   // each tab is split into sub-tabs; only the chosen one is drawn
   var SUBS = {
     league: [["table", "Standings"], ["prizes", "XP"]],
-    races: [["result", "Result"], ["grid", "Race grid"], ["winners", "Winners"]],
-    you: [["overview", "Overview"], ["team", "Team"], ["rounds", "Rounds"], ["picks", "Picks"], ["rivals", "Rivals"]],
-    trends: [["rank", "Position"], ["gap", "Gap"], ["pts", "Points"], ["value", "Value"]],
-    stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["form", "Form"], ["moves", "Movement"], ["value", "Value"]],
-    picks: [["template", "Template"], ["drivers", "Drivers"], ["constructors", "Constructors"], ["diffs", "Differentials"], ["trusted", "Trusted"]]
+    races: [["result", "Result"], ["grid", "Race grid"]],
+    you: [["season", "Season"], ["team", "Team"], ["picks", "Picks"], ["rivals", "Rivals"]],
+    trends: [["rank", "Position"], ["gap", "Gap"]],
+    stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["moves", "Movement"], ["value", "Value"]],
+    picks: [["drivers", "Drivers"], ["constructors", "Constructors"], ["trusted", "Trusted"]]
   };
   var MARK = "\u0001";
   function SUB(key) { return MARK + key + MARK; }
@@ -248,6 +248,11 @@
     return h;
   }
   function d0(ri) { return ri ? S.data.league.season + " " + ri.name : "round " + S.model.N; }
+  function figs(list) {
+    return '<section class="figs">' + list.map(function (f) {
+      return '<div class="fig"><b' + (f.cls ? ' class="' + f.cls + '"' : "") + ">" + f.v + "</b><span>" + esc(f.k) + "</span>" + (f.d ? "<small>" + esc(f.d) + "</small>" : "") + "</div>";
+    }).join("") + "</section>";
+  }
   function tile(k, v, d) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="d">' + (d || "") + "</div></div>"; }
 
   function lastFirst(m) { var p = m.name.split(" "); return { first: p.length > 1 ? p.slice(0, -1).join(" ") : "", last: p[p.length - 1] }; }
@@ -279,82 +284,71 @@
           '</small></div><div class="rpts"><b>' + fmt(m.pts[r]) + "</b>PTS</div></div>";
       }).join("") + "</div>";
     }
-    h += '<div class="result-f">League average ' + fmt(ri.avg) + (nav ? ' · <a href="#" data-r="' + r + '">full round ›</a>' : "") + "</div></section>";
+    h += "</section>";
     return h;
   }
 
   function viewPrizes() {
     var P = S.prizes, M = S.model;
     if (!P) return "";
-    var c = P.cfg, h = SUB("prizes");
-    var medals = ["1st", "2nd", "3rd"];
-    h += '<section class="hero">' +
-      tile("XP pool", cur(P.pot), P.players + " × " + cur(c.entry)) +
-      tile("Race XP", cur(P.roundPool), P.totalRounds + " races × " + cur(c.perRound)) +
-      tile("Awarded so far", cur(P.roundsPaid), M.N + " of " + P.totalRounds + " races") +
-      tile("Still to earn", cur(P.roundsLeft * c.perRound), P.roundsLeft + " race" + (P.roundsLeft === 1 ? "" : "s") + " + the season") + "</section>";
-    h += '<section class="card"><h2>Season XP</h2><p class="sub">What\'s left of the pool after race XP (' + cur(P.pot) + " − " + cur(P.roundPool) + " = " + cur(P.seasonPool) + "), split " + c.split.join(" : ") + " between the top three at the end of the season.</p>" +
-      '<div class="prize3">' + P.seasonPrizes.map(function (v, i) {
-        return '<div class="pz pz' + (i + 1) + '"><span class="pzn">' + medals[i] + "</span><b>" + cur(v, true) + "</b><small>XP · " + c.split[i] + " parts</small></div>";
-      }).join("") + "</div></section>";
+    var medals = ["1st", "2nd", "3rd"], h = SUB("prizes");
+    h += '<div class="prize3">' + P.seasonPrizes.map(function (v, i) {
+      return '<div class="pz pz' + (i + 1) + '"><span class="pzn">' + medals[i] + "</span><b>" + cur(v, true) + "</b><small>XP</small></div>";
+    }).join("") + "</div>";
     var rows = M.managers.slice().sort(function (a, b) { return P.by[b.id].total - P.by[a.id].total || a.rank - b.rank; });
-    h += '<section class="card"><h2>XP table</h2><p class="sub">Race XP earned so far, plus the season XP each would take if the season ended today (gold, silver, bronze). Net is after the ' + cur(c.entry) + " each put in.</p>";
-    h += '<div class="tblwrap"><table class="wintbl"><thead><tr><th class="l">Manager</th><th>Race XP</th><th title="Season XP if it ended now">Season</th><th>Net XP</th></tr></thead><tbody>';
+    h += '<section class="card"><div class="tblwrap"><table class="wintbl"><thead><tr><th class="l">Manager</th><th>Race</th><th>Season</th><th>Net</th></tr></thead><tbody>';
     rows.forEach(function (m) {
-      var x = P.by[m.id], shared = x.raceWins.some(function (w) { return w.shared; });
+      var x = P.by[m.id];
       h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) +
-        "<td>" + cur(x.race, true) + "<small>" + x.raceWins.length + " win" + (x.raceWins.length === 1 ? "" : "s") + "" + "</small></td>" +
-        '<td class="' + "t" + medal(m.rank) + '">' + (x.projected ? cur(x.projected, true) : "–") + "</td>" +
-        '<td class="num ' + (x.net >= 0 ? "up" : "down") + '">' + (x.net >= 0 ? "+" : "") + cur(x.net, true) + "<small>earned " + cur(x.total, true) + "</small></td></tr>";
+        "<td>" + cur(x.race, true) + "<small>" + x.raceWins.length + " win" + (x.raceWins.length === 1 ? "" : "s") + "</small></td>" +
+        '<td class="t' + medal(m.rank) + '">' + (x.projected ? cur(x.projected, true) : "–") + "</td>" +
+        '<td class="num ' + (x.net >= 0 ? "up" : "down") + '">' + (x.net >= 0 ? "+" : "") + cur(x.net, true) + "</td></tr>";
     });
-    h += '</tbody></table></div><p class="sub" style="margin:8px 0 0">* includes a tied round, where the winners share the ' + cur(c.perRound) + ". Rounded to whole XP.</p></section>";
-    return h;
+    return h + "</tbody></table></div></section>";
+  }
+
+  function dreamTeam(r) {
+    var ri = S.model.roundInfo[r - 1], t = ri && ri.totw;
+    if (!t) return "";
+    return '<section class="card totw"><div class="totw-h"><div><div class="k">Cost</div><div class="v">' + money(t.cost) + '</div></div><div class="ttl"><b>Dream team</b><span>Round ' + r + " · " + esc(ri.short) +
+      '</span></div><div class="r"><div class="k">Points</div><div class="v">' + fmt(t.pts) + "</div></div></div>" +
+      teamGrid(t.drivers, t.constructors, function (x) {
+        var b = x.id === t.boosted;
+        return { price: x.price, move: false, pts: b ? x.pts * 2 : x.pts, boost: b ? "2×" : "" };
+      }) + "</section>";
+  }
+  function whoScored(r) {
+    var M = S.model, pts = S.data.assetPoints && S.data.assetPoints[r];
+    if (!pts) return "";
+    var list = M.managers.filter(function (m) { return m.pts[r] != null; });
+    var own = {}; list.forEach(function (m) { (m.team_[r] || []).forEach(function (id) { own[id] = (own[id] || 0) + 1; }); });
+    var top = Object.keys(pts).filter(function (id) { return assetOf(id); }).sort(function (a, b) { return pts[b] - pts[a]; }).slice(0, 10);
+    return '<section class="card"><h2>Who scored</h2><div class="alist">' + top.map(function (id) {
+      return assetRow(id, "<b>" + fmt(pts[id]) + '</b><span class="k">pts</span>', (own[id] || 0) + "/" + list.length + " own");
+    }).join("") + "</div></section>";
   }
 
   function viewRaces() {
     var M = S.model, h = "";
     if (S.podR == null || S.podR > M.N || S.podR < 1) S.podR = M.N;
-    h += SUB("result");
-    h += podiumHtml(S.podR, true);
+    h += SUB("result") + podiumHtml(S.podR, true) + dreamTeam(S.podR) + whoScored(S.podR);
     h += SUB("grid");
-    h += '<section class="card"><h2>Race by race</h2><p class="sub">Points each round. The brighter the red, the higher they finished in that round; gold, silver and bronze outlines = 1st, 2nd and 3rd.</p>';
-    h += '<div class="tblwrap"><table class="heat"><thead><tr><th class="l">Manager</th>';
-    M.roundInfo.forEach(function (ri) { h += '<th class="rd" title="' + esc(ri.name) + '">' + esc(abbr(ri.short)) + "<br>" + ri.round + "</th>"; });
+    h += '<section class="card"><div class="tblwrap"><table class="heat"><thead><tr><th class="l"></th>';
+    M.roundInfo.forEach(function (ri) { h += '<th class="rd click" data-r="' + ri.round + '" title="' + esc(ri.name) + '">' + esc(abbr(ri.short)) + "<br>" + ri.round + "</th>"; });
     h += '<th>Total</th></tr></thead><tbody>';
     M.managers.forEach(function (m) {
       h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><b>' + esc(firstName(m)) + "</b></td>";
       M.roundInfo.forEach(function (ri) {
-        var p = m.pts[ri.round];
-        if (p == null) { h += '<td class="cell none" title="Not in the league yet">·</td>'; return; }
-        var rr = m.roundRank[ri.round];
-        h += '<td class="cell' + (rr === 1 ? " win" : rr === 2 ? " sec" : rr === 3 ? " thi" : "") + '" style="' + heat(m.roundRank[ri.round], ri.count) + '" title="' +
-          esc(m.name + " — " + ri.name + ": " + p + " pts, " + ordinal(m.roundRank[ri.round]) + " of " + ri.count) + '">' + fmt(p) + "</td>";
+        var p = m.pts[ri.round], rr = m.roundRank[ri.round];
+        if (p == null) { h += '<td class="cell none">·</td>'; return; }
+        h += '<td class="cell' + (rr === 1 ? " win" : rr === 2 ? " sec" : rr === 3 ? " thi" : "") + '" style="' + heat(rr, ri.count) + '" title="' +
+          esc(m.name + " — " + ri.name + ": " + p + " pts, " + ordinal(rr) + " of " + ri.count) + '">' + fmt(p) + "</td>";
       });
       h += '<td class="tot">' + fmt(m.total) + "</td></tr>";
     });
-    h += '<tr><td class="l muted">League avg</td>';
+    h += '<tr><td class="l muted">Avg</td>';
     M.roundInfo.forEach(function (ri) { h += '<td class="muted">' + fmt(ri.avg) + "</td>"; });
-    h += "<td></td></tr></tbody></table></div>";
-    h += '<div class="legend">Top of the round <span class="ramp" style="background:linear-gradient(90deg, rgba(var(--heat),.76), rgba(var(--heat),.06))"></span> bottom</div>';
-    if (M.managers.some(function (m) { return m.preJoin; })) {
-      h += '<p class="sub" style="margin-top:8px">· = not in the league yet. ' + M.managers.filter(function (m) { return m.preJoin; }).map(function (m) {
-        return esc(m.name) + " joined from round " + m.joinRound + "; their " + fmt(m.preJoin) + " points before that count in the total";
-      }).join(". ") + ".</p>";
-    }
-    h += "</section>";
-
-    h += SUB("winners");
-    h += '<section class="board"><div class="board-h"><div class="board-t">Round winners</div><div class="board-s">Top score in the league each round · tap for the full result</div></div>';
-    M.roundInfo.slice().reverse().forEach(function (ri) {
-      h += standRow({
-        pos: ri.round, attr: ' data-r="' + ri.round + '"', me: ri.winners.some(isMe),
-        name: "<b>" + esc(ri.short) + "</b>",
-        sub: "🏆 " + esc(ri.winners.map(function (m) { return m.name; }).join(" & ")) + (S.prizes ? " · " + cur(S.prizes.cfg.perRound / ri.winners.length) + (ri.winners.length > 1 ? " each" : "") : "") + " · avg " + fmt(ri.avg) + (ri.sprint ? " · sprint" : ""),
-        pts: fmt(ri.high)
-      });
-    });
-    h += "</section>";
-    return h;
+    return h + "<td></td></tr></tbody></table></div></section>";
   }
   function abbr(s) {
     var A = { "Australian": "AUS", "Chinese": "CHN", "Japanese": "JPN", "Miami": "MIA", "Canadian": "CAN", "Monaco": "MON", "Barcelona": "BCN",
@@ -370,25 +364,17 @@
   }
 
   function viewTrends() {
-    var M = S.model, h = "";
-    h += chipsHtml();
-    h += SUB("rank");
-    h += '<section class="card"><h2>League position by round</h2><p class="sub">Where each manager stood after every round.</p><div class="chartbox" data-chart="rank"></div>' + keyHtml() + "</section>";
-    h += SUB("gap");
-    h += '<section class="card"><h2>Points behind the leader</h2><p class="sub">The gap to whoever was top after each round. 0 = leading.</p><div class="chartbox" data-chart="gap"></div>' + keyHtml() + "</section>";
-    h += SUB("pts");
-    h += '<section class="card"><h2>Points per round</h2><p class="sub">Each round\'s score; the dashed line is the league average.</p><div class="chartbox" data-chart="pts"></div>' + keyHtml() + "</section>";
-    h += SUB("value");
-    h += '<section class="card"><h2>Team value ($m)</h2><p class="sub">The seven picks at each round\'s prices. Teams start at $100m; cash in the bank isn\'t published. A one-round spike is the Limitless chip.</p><div class="chartbox" data-chart="value"></div>' + keyHtml() + "</section>";
+    var h = chipsHtml();
+    h += SUB("rank") + '<section class="card"><div class="chartbox" data-chart="rank"></div>' + keyHtml() + "</section>";
+    h += SUB("gap") + '<section class="card"><div class="chartbox" data-chart="gap"></div>' + keyHtml() + "</section>";
     return h;
   }
   function chipsHtml() {
     var M = S.model;
-    return '<section class="card"><h2>Highlight a manager</h2><p class="sub">Gold = leader' + (S.me ? ", blue = you" : "") + ", red = the one you pick.</p><div class=\"chips\">" +
-      M.managers.map(function (m) {
-        var cls = m.id === S.focus ? " on" : isMe(m) ? " me" : m === M.leader ? " lead" : "";
-        return '<button class="chip' + cls + '" data-focus="' + esc(m.id) + '">' + esc(m.name) + "</button>";
-      }).join("") + "</div></section>";
+    return '<div class="chips quiet">' + M.managers.map(function (m) {
+      var cls = m.id === S.focus ? " on" : isMe(m) ? " me" : m === M.leader ? " lead" : "";
+      return '<button class="chip' + cls + '" data-focus="' + esc(m.id) + '">' + esc(firstName(m)) + "</button>";
+    }).join("") + "</div>";
   }
   function keyHtml() {
     var M = S.model, k = [];
@@ -529,16 +515,6 @@
     });
     h += "</tbody></table></div></section>";
 
-    // Form
-    h += SUB("form");
-    h += '<section class="card"><h2>Form</h2><p class="sub">Average over the last 3 and 5 rounds, against the manager\'s own season average.</p>';
-    h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th class="c">Last 5 (round finish)</th><th>L3</th><th>L5</th><th>Season</th><th>vs season</th></tr></thead><tbody>';
-    M.managers.slice().sort(function (a, b) { return b.form5 - a.form5; }).forEach(function (m) {
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) + '<td class="c"><span class="form">' + m.formRanks.map(function (r) { return formChip(r, n); }).join("") +
-        '</span></td><td>' + fmt(m.form3) + '</td><td class="num">' + fmt(m.form5) + "</td><td>" + fmt(m.avg) + '</td><td class="' + (m.formVsAvg >= 0 ? "up" : "down") + '">' + signed(m.formVsAvg) + "</td></tr>";
-    });
-    h += "</tbody></table></div></section>";
-
     // Movement
     h += SUB("moves");
     h += '<div class="grid two">';
@@ -548,11 +524,10 @@
       (M.records.falls.length ? M.records.falls.map(function (x, i) { return recRow(i + 1, x.m, roundLabel(x.round) + " · " + ordinal(x.from) + " → " + ordinal(x.to), '<span class="down">▼' + -x.delta + "</span>"); }).join("") : '<div class="empty">None yet.</div>') + "</div></section>";
     h += "</div><div style=\"height:14px\"></div>";
 
-    h += '<section class="card"><h2>Highs &amp; lows in the table</h2><p class="sub">Best and worst league position after any round, and where they are now.</p>';
-    h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>Now</th><th>Best</th><th>Worst</th><th>Last round</th></tr></thead><tbody>';
+    h += '<section class="card"><h2>Highest &amp; lowest position</h2>';
+    h += '<div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>Highest</th><th>Lowest</th></tr></thead><tbody>';
     M.managers.forEach(function (m) {
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) + '<td class="num">' + ordM(m.rank) + '</td><td class="up">' + (m.bestRank ? ordinal(m.bestRank) : "–") +
-        '</td><td class="down">' + (m.worstRank ? ordinal(m.worstRank) : "–") + "</td>" + moveCell(m.move) + "</tr>";
+      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '">' + whoCell(m) + "<td>" + ordM(m.bestRank) + '</td><td class="muted">' + (m.worstRank ? ordinal(m.worstRank) : "–") + "</td></tr>";
     });
     h += "</tbody></table></div></section>";
 
@@ -577,33 +552,15 @@
 
   function viewPicks() {
     var M = S.model, h = "", n = M.managers.length;
-    var weekPrices = M.priceRound > M.N ? "this week's" : "current";
-    // template
-    var tD = M.drivers.filter(function (o) { return o.count; }).slice(0, 5), tC = M.constructors.filter(function (o) { return o.count; }).slice(0, 2);
-    var tv = tD.concat(tC).reduce(function (s, o) { return s + (o.price || 0); }, 0);
-    h += SUB("template");
-    h += '<section class="card"><div class="totw-h"><div><div class="k">Cost</div><div class="v">' + money(tv) + '</div></div><div class="ttl"><b>The league template</b><span>most-owned five drivers + two constructors</span></div><div class="r"><div class="k">Owned by</div><div class="v">' + n + "</div></div></div>" +
-      teamGrid(tD, tC, function (o) { return { price: o.price, extra: o.count + "/" + n + " own" }; }) +
-      '<p class="sub" style="margin:12px 0 0">Teams as F1 last published them (round ' + M.N + ") at " + weekPrices + " prices. Changes for the next race show once it's scored.</p></section>";
-
     h += SUB("drivers");
     h += ownershipCard("Drivers", M.drivers, n);
     h += SUB("constructors");
     h += ownershipCard("Constructors", M.constructors, n);
 
-    // differentials
-    var diffs = M.ownership.filter(function (o) { return o.count === 1; });
-    h += SUB("diffs");
-    h += '<section class="card"><h2>Differentials</h2><p class="sub">Picks only one manager in the league owns.</p><div class="alist">' +
-      (diffs.length ? diffs.map(function (o) {
-        var m = o.owners[0];
-        return assetRow(o.id, '<span class="k">' + esc(m.name.split(" ")[0]) + "</span>", money(o.price) + (o.global != null ? " · " + o.global + "% overall" : ""));
-      }).join("") : '<div class="empty">None — everyone owns something someone else does.</div>') + "</div></section>";
-
     // season-long
     var season = M.ownership.filter(function (o) { return o.seasonCount; }).slice().sort(function (a, b) { return b.seasonPct - a.seasonPct; }).slice(0, 10);
     h += SUB("trusted");
-    h += '<section class="card"><h2>Most trusted this season</h2><p class="sub">Share of all manager-rounds a pick was in a team, rounds 1–' + M.N + '.</p><div class="alist">' +
+    h += '<section class="card"><div class="alist">' +
       season.map(function (o) {
         return assetRow(o.id, '<b>' + fmt(o.seasonPct) + "%</b>", '<span class="minibar"><i style="width:' + o.seasonPct.toFixed(1) + '%"></i></span>');
       }).join("") + "</div></section>";
@@ -611,7 +568,7 @@
   }
   function ownershipCard(title, list, n) {
     var rows = list.filter(function (o) { return o.count || (o.global && o.active); });
-    return '<section class="card"><h2>' + title + '</h2><p class="sub">Owned in the league now, against the share of all F1 Fantasy teams. Tap for owners.</p><div class="alist">' +
+    return '<section class="card"><div class="alist">' +
       rows.map(function (o) {
         return assetRow(o.id, "<b>" + o.count + "/" + n + '</b><span class="k">' + (o.global != null ? o.global + "% all" : "") + "</span>",
           money(o.price) + " " + signedMoney(priceMove(o.id)) + '<span class="minibar"><i style="width:' + o.pct.toFixed(1) + '%"></i>' +
@@ -633,22 +590,22 @@
   function managerParts(m) {
     var M = S.model, n = M.managers.length, P = {};
     var o = {}; M.ownership.forEach(function (x) { o[x.id] = x; });
-    P.head = "<h1>" + esc(m.name) + (isMe(m) ? ' <span class="pill me">you</span>' : "") + '</h1><p class="lede">' + esc(m.team) + " · " + ordinal(m.rank) + " of " + n +
-      (m.gapLeader ? " · " + fmt(m.gapLeader) + " behind the leader" : " · leading") + "</p>";
-    P.tiles = '<section class="hero">' + tile("Total", fmt(m.total), "avg " + fmt(m.avg, 1) + " a round") + tile("Last round", fmt(m.last), m.roundRank[M.N] ? ordinal(m.roundRank[M.N]) + " in " + esc(roundName(M.N)) : "") +
-      tile("Best weekend", fmt(m.best && m.best.pts), m.best ? esc(roundLabel(m.best.round)) : "") + tile("Worst weekend", fmt(m.worst && m.worst.pts), m.worst ? esc(roundLabel(m.worst.round)) : "") + "</section>" +
-      '<section class="hero">' + tile("Round wins", m.wins, m.podiums + " top-three") + tile("Form (last 5)", fmt(m.form5), signed(m.formVsAvg) + " vs season") +
-      tile("Team value", money(m.currentValue), m.valueGain != null ? signed(m.valueGain, 1) + "m since round " + m.joinRound : "") + tile("Highest / lowest", (m.bestRank ? ordinal(m.bestRank) : "–") + " / " + (m.worstRank ? ordinal(m.worstRank) : "–"), "league position") + "</section>";
+    P.head = "<h1>" + esc(m.name) + (isMe(m) ? ' <span class="pill me">you</span>' : "") + '</h1><p class="lede">' + esc(m.team) + " · " + ordinal(m.rank) + " · " + fmt(m.total) + " pts" +
+      (m.gapLeader ? " · −" + fmt(m.gapLeader) : "") + "</p>";
+    var W = S.prizes && S.prizes.by[m.id];
+    P.tiles = figs([
+      { k: "Average", v: fmt(m.avg) },
+      { k: "Best", v: fmt(m.best && m.best.pts), d: m.best ? roundName(m.best.round) : "" },
+      { k: "Wins", v: fmt(m.wins) },
+      W ? { k: "Net XP", v: (W.net >= 0 ? "+" : "") + cur(W.net, true), cls: W.net >= 0 ? "up" : "down" } : { k: "Top 3", v: fmt(m.podiums) }
+    ]);
     var lp = (S.data.assetPoints || {})[M.N] || {};
     var drv = m.picks.filter(function (id) { return (assetOf(id) || {}).type === "D"; }).map(function (id) { return { id: id }; });
     var con = m.picks.filter(function (id) { return (assetOf(id) || {}).type === "C"; }).map(function (id) { return { id: id }; });
     P.team = '<section class="card"><div class="totw-h"><div><div class="k">Team value</div><div class="v">' + money(m.currentValue) + '</div></div><div class="ttl"><b>Current team</b><span>as used in ' + esc(roundName(M.N)) +
       '</span></div><div class="r"><div class="k">' + esc(abbr(roundName(M.N))) + ' points</div><div class="v">' + fmt(m.last) + "</div></div></div>" +
-      teamGrid(drv, con, function (x) { return { pts: lp[x.id], extra: (o[x.id] ? o[x.id].count + "/" + n + " own" : "") }; }) +
-      '<p class="sub" style="margin:12px 0 0">Prices are ' + (M.priceRound > M.N ? "this week's" : "current") + " with the change since last round; points are F1 Fantasy's for " + esc(roundName(M.N)) + " before any Boost or chip.</p></section>";
-    var r0 = "";
-    if (m.preJoin) r0 = '<p class="sub">Joined the league from round ' + m.joinRound + "; " + fmt(m.preJoin) + " points scored before that are in the total but not in the rounds below.</p>";
-    r0 += '<section class="card"><h2>Round by round</h2><div class="tblwrap"><table><thead><tr><th class="l">Round</th><th>Pts</th><th>Round</th><th>League</th><th>Value</th><th>Changes</th></tr></thead><tbody>';
+      teamGrid(drv, con, function (x) { return { pts: lp[x.id] }; }) + "</section>";
+    var r0 = '<section class="card"><div class="tblwrap"><table><thead><tr><th class="l">Round</th><th>Pts</th><th>Finish</th><th>League</th><th>Value</th><th>Changes</th></tr></thead><tbody>';
     M.rounds.slice().reverse().forEach(function (r) {
       var ri = M.roundInfo[r - 1];
       if (m.pts[r] == null) { r0 += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td colspan="5" class="muted c">not in the league yet</td></tr>'; return; }
@@ -664,15 +621,12 @@
       (m.team_[r] || []).forEach(function (id) { if (pts[id] != null) { earned[id] = (earned[id] || 0) + pts[id]; held[id] = (held[id] || 0) + 1; } });
     });
     var ids = Object.keys(earned).filter(function (id) { return assetOf(id); }).sort(function (a, b) { return earned[b] - earned[a]; });
-    var listOf = function (type, title, sub) {
+    var listOf = function (type, title) {
       var l = ids.filter(function (id) { return assetOf(id).type === type; });
-      return '<section class="card"><h2>' + title + '</h2><p class="sub">' + sub + '</p><div class="alist">' +
+      return '<section class="card"><h2>' + title + '</h2><div class="alist">' +
         l.map(function (id) { return assetRow(id, "<b>" + fmt(earned[id]) + '</b><span class="k">pts</span>', held[id] + " round" + (held[id] === 1 ? "" : "s") + " in the team"); }).join("") + "</div></section>";
     };
-    P.picks = listOf("D", "Drivers who scored for you", "F1 Fantasy points each driver scored while in this team, before Boosts and chips.") +
-      listOf("C", "Constructors who scored for you", "Points each constructor scored while in this team.") +
-      '<section class="hero">' + tile("Picks changed", fmt(m.totalTransfers), fmt(m.totalTransfers / Math.max(1, m.played - 1), 1) + " a round") +
-      tile("Different picks used", ids.length, "drivers and constructors") + "</section>";
+    P.picks = listOf("D", "Drivers") + listOf("C", "Constructors");
 
     // rivals: neighbours in the table, and head-to-head against everyone
     var i = M.managers.indexOf(m), above = M.managers[i - 1], below = M.managers[i + 1], back = Math.max(1, M.N - 5);
@@ -692,9 +646,9 @@
       M.rounds.forEach(function (r) { if (m.pts[r] == null || x.pts[r] == null) return; if (m.pts[r] > x.pts[r]) w++; else if (m.pts[r] < x.pts[r]) l++; else d++; });
       return { x: x, w: w, l: l, d: d };
     });
-    P.rivals = '<section class="card"><h2>Either side of you</h2><p class="sub">The gap now, and how it has moved over the last five rounds.</p><div class="rows">' +
+    P.rivals = '<section class="card"><h2>Either side</h2><div class="rows">' +
       (gapRow(above, "Ahead") + gapRow(below, "Behind") || '<div class="empty">Nobody either side.</div>') + "</div></section>" +
-      '<section class="card"><h2>Head to head</h2><p class="sub">Rounds won, lost and tied against each manager, round by round.</p><div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>W</th><th>L</th><th>T</th><th>Total gap</th></tr></thead><tbody>' +
+      '<section class="card"><h2>Head to head</h2><div class="tblwrap"><table><thead><tr><th class="l">Manager</th><th>W</th><th>L</th><th>T</th><th>Gap</th></tr></thead><tbody>' +
       h2h.map(function (r) {
         var g = m.total - r.x.total;
         return '<tr class="click" data-m="' + esc(r.x.id) + '">' + whoCell(r.x) + '<td class="num ' + (r.w > r.l ? "up" : r.w < r.l ? "down" : "") + '">' + r.w + "</td><td>" + r.l + "</td><td>" + r.d +
@@ -707,9 +661,7 @@
     var m = byId(id);
     if (!m) return;
     var P = managerParts(m);
-    openSheet(P.head + P.tiles + P.team + '<section class="card"><h2>League position</h2><div class="chartbox" data-chart="rank" data-only="' + esc(m.id) + '"></div></section>' + P.rounds + P.picks + P.rivals);
-    var focusChart = $("sheet").querySelector('[data-chart="rank"]');
-    if (focusChart) { var prev = S.focus; S.focus = m.id; lineChart(focusChart, "rank", { label: "League position" }); S.focus = prev; }
+    openSheet(P.head + P.tiles + P.team + P.rounds);
   }
 
   function teamSelect() {
@@ -723,7 +675,7 @@
   function viewYou() {
     var m = S.me && byId(S.me);
     if (!m) {
-      return '<section class="card youpick"><h2>Which team is yours?</h2><p class="sub keep">Pick it once and this tab becomes your season: your team, every round, the picks that scored for you, and your rivals. Saved on this device only.</p>' +
+      return '<section class="card youpick"><h2>Which team is yours?</h2>' +
         teamSelect() + "</section>";
     }
     var P = managerParts(m), M = S.model;
@@ -731,49 +683,17 @@
     var head = '<section class="you-h"><div class="you-pos"><span class="' + "t" + medal(m.rank) + '">' + m.rank + '</span><small>of ' + M.managers.length + '</small></div><div class="you-name">' +
       (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b><small>" + esc(m.team) + '</small></div><div class="you-pts"><b>' + fmt(m.total) + "</b><small>" +
       (m.gapLeader ? "−" + fmt(m.gapLeader) + " to 1st" : "leading") + "</small></div></section>";
-    var W = S.prizes && S.prizes.by[m.id];
-    var money2 = W ? '<section class="hero">' + tile("Race XP", cur(W.race), W.raceWins.length + " race" + (W.raceWins.length === 1 ? "" : "s") + " won") +
-      tile("If it ended now", W.projected ? cur(W.projected) : "–", W.projected ? "season XP for " + ordinal(m.rank) : "outside the top three") +
-      tile("Total XP", cur(W.total), "race + season XP") + tile("Net XP", (W.net >= 0 ? "+" : "") + cur(W.net), "after the " + cur(S.prizes.cfg.entry) + " put in") + "</section>" : "";
     return head +
-      SUB("overview") + P.tiles + money2 +
-      '<section class="card"><h2>Your league position</h2><p class="sub">You in blue, the leader in gold.</p><div class="chartbox" data-chart="rank"></div></section>' +
-      '<section class="card"><h2>Your points per round</h2><p class="sub">Against the league average (dashed).</p><div class="chartbox" data-chart="pts"></div></section>' +
+      SUB("season") + P.tiles + P.rounds +
       SUB("team") + P.team +
-      SUB("rounds") + P.rounds +
       SUB("picks") + P.picks +
       SUB("rivals") + P.rivals;
   }
 
-  function roundSheet(r) {
-    var M = S.model, ri = M.roundInfo[r - 1];
-    if (!ri) return;
-    var list = M.managers.filter(function (m) { return m.pts[r] != null; }).sort(function (a, b) { return a.roundRank[r] - b.roundRank[r]; });
-    var h = "<h1>Round " + r + " · " + esc(ri.name) + '</h1><p class="lede">' + (ri.date ? when(ri.date, { day: "numeric", month: "long", year: "numeric" }) : "") + (ri.sprint ? " · sprint weekend" : "") +
-      " · league average " + fmt(ri.avg, 1) + "</p>";
-    h += podiumHtml(r, false);
-    // dream team: the best possible seven that round
-    if (ri.totw) {
-      var t = ri.totw;
-      h += '<section class="card totw"><div class="totw-h"><div><div class="k">Cost</div><div class="v">' + money(t.cost) + '</div></div><div class="ttl"><b>Dream team</b><span>Round ' + r + " · " + esc(ri.short) +
-        '</span></div><div class="r"><div class="k">Points</div><div class="v">' + fmt(t.pts) + "</div></div></div>" +
-        teamGrid(t.drivers, t.constructors, function (x) {
-          var b = x.id === t.boosted;
-          return { price: x.price, move: false, pts: b ? x.pts * 2 : x.pts, boost: b ? "2×" : "" };
-        }) +
-        '<p class="sub" style="margin:12px 0 0">The best five drivers and two constructors of the round, top driver boosted 2×, no cost cap. Beat ' +
-        (t.pts > ri.high ? "the league's best (" + fmt(ri.high) + ") by " + fmt(t.pts - ri.high) : "by " + esc(ri.winners[0].name)) + ".</p></section>";
-    }
-    var pts = S.data.assetPoints && S.data.assetPoints[r];
-    if (pts) {
-      var top = Object.keys(pts).filter(function (id) { return assetOf(id); }).sort(function (a, b) { return pts[b] - pts[a]; });
-      var own = {}; list.forEach(function (m) { (m.team_[r] || []).forEach(function (id) { own[id] = (own[id] || 0) + 1; }); });
-      h += '<section class="card"><h2>Who scored</h2><p class="sub">F1 Fantasy points this round (before any Boost) and how many in the league had them.</p><div class="alist">' +
-        top.slice(0, 10).map(function (id) {
-          return assetRow(id, "<b>" + fmt(pts[id]) + '</b><span class="k">pts</span>', "owned by " + (own[id] || 0) + "/" + list.length);
-        }).join("") + "</div></section>";
-    }
-    openSheet(h);
+  function showRound(r) {
+    S.podR = r;
+    closeSheet();
+    if (location.hash === "#races/result") { render(); window.scrollTo(0, 0); } else location.hash = "races/result";
   }
 
   function assetSheet(id) {
@@ -782,10 +702,8 @@
     var a = o.asset;
     var nm = splitName(a);
     var h = '<div class="ahero" style="' + tc(teamColor(a.team)) + '">' + (a.type === "C" ? pic(id, "car", "hcar") : pic(id, "head", "hhead")) +
-      '<div class="ahero-t">' + (nm.first ? '<span class="fn">' + esc(nm.first) + "</span>" : "") + "<b>" + esc(nm.last) + "</b><small>" + (a.type === "C" ? "Constructor" : esc(a.team)) + " · " + money(o.price) + " " + signedMoney(priceMove(id)) + "</small></div></div>" +
-      '<p class="lede">' + (o.global != null ? "In " + o.global + "% of all F1 Fantasy teams" : "") + "</p>";
-    h += '<section class="hero">' + tile("League owners", o.count + "/" + M.managers.length, fmt(o.pct) + "%") + tile("Season points", fmt(o.seasonPts), "rounds 1–" + M.N) +
-      tile("Last round", fmt(o.lastPts), esc(roundName(M.N))) + tile("Season share", fmt(o.seasonPct) + "%", "of manager-rounds") + "</section>";
+      '<div class="ahero-t">' + (nm.first ? '<span class="fn">' + esc(nm.first) + "</span>" : "") + "<b>" + esc(nm.last) + "</b><small>" + (a.type === "C" ? "Constructor" : esc(a.team)) + " · " + money(o.price) + " " + signedMoney(priceMove(id)) + "</small></div></div>";
+    h += figs([{ k: "Season pts", v: fmt(o.seasonPts) }, { k: roundName(M.N), v: fmt(o.lastPts) }, { k: "League", v: o.count + "/" + M.managers.length }, { k: "All teams", v: o.global != null ? o.global + "%" : "–" }]);
     h += '<section class="card"><h2>Owned by</h2><div class="rows">' + (o.owners.length ? o.owners.map(function (m) {
       return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + m.rank + '</div><div class="main"><div class="n">' + esc(m.name) + '</div><div class="t">' + esc(m.team) + "</div></div></div>";
     }).join("") : '<div class="empty">Nobody in the league.</div>') + "</div></section>";
@@ -793,14 +711,6 @@
   }
 
   /* ---------------- burger menu ---------------- */
-  var STATS_NOTES = {
-    records: "Highest and lowest single rounds",
-    weekends: "Each manager's best and worst, and consistency",
-    honours: "Round wins, top threes, last places",
-    form: "Last 3 and 5 rounds against the season",
-    moves: "Biggest climbs and drops, highs and lows",
-    value: "Team value and picks changed"
-  };
   var ICON = {
     profile: '<circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />',
     records: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z" />',
@@ -828,22 +738,19 @@
       h += '<span class="dr-av">' + esc((me.team || me.name).trim().charAt(0).toUpperCase()) + '</span><span class="dr-id"><b>' + esc(me.team) + "</b><small>" + esc(me.name) + " · " + ordinal(me.rank) + "</small></span>" +
         '<button type="button" class="dr-change" data-toggle-team="1">Change</button>';
     } else {
-      h += '<span class="dr-av">?</span><span class="dr-id"><b>Choose your team</b><small>See your season, highlighted everywhere</small></span>';
+      h += '<span class="dr-av">?</span><span class="dr-id"><b>Choose your team</b></span>';
     }
     h += '</div><div class="dr-select"' + (me ? " hidden" : "") + ">" + teamSelect() + "</div>";
-    h += '<nav class="dr-list">' + drItem({ icon: "profile", title: "My profile", href: "#you", on: S.tab === "you" });
+    h += '<nav class="dr-list">';
     var cur = S.tab === "stats" ? S.sub.stats : null;
     h += '<div class="dr-h">Stats</div>' + SUBS.stats.map(function (x) {
-      return drItem({ icon: x[0], title: x[1], sub: STATS_NOTES[x[0]], href: "#stats/" + x[0], on: x[0] === cur });
+      return drItem({ icon: x[0], title: x[1], href: "#stats/" + x[0], on: x[0] === cur });
     }).join("");
-    h += '<div class="dr-h">League</div>' +
-      drItem({ icon: "xp", title: "XP", sub: "The XP pool, race XP and the season split", href: "#league/prizes", on: S.tab === "league" && S.sub.league === "prizes" }) +
-      drItem({ icon: "h2h", title: "Head to head", sub: "Your record against every manager", href: "#you/rivals", on: S.tab === "you" && S.sub.you === "rivals" }) +
-      drItem({ icon: "rules", title: "Game rules", sub: "F1 Fantasy scoring, chips and transfers", attr: ' data-open="rules"' }) +
-      drItem({ icon: "settings", title: "Settings", sub: "Appearance, league XP, about the data", attr: ' data-open="settings"' });
+    h += '<div class="dr-sep"></div>' +
+      drItem({ icon: "rules", title: "Rules", attr: ' data-open="rules"' }) +
+      drItem({ icon: "settings", title: "Settings", attr: ' data-open="settings"' });
     h += "</nav>";
-    h += '<div class="dr-foot"><p>Updated ' + esc(ago(S.data.generatedAt)) + " · " + M.managers.length + " managers<br>" +
-      (M.next && M.next.lock && Date.parse(M.next.lock) > Date.now() ? esc(M.next.short) + " locks in " + until(M.next.lock) : "Round " + M.N + " of " + (M.N + M.remaining)) +
+    h += '<div class="dr-foot"><p>' + (M.next && M.next.lock && Date.parse(M.next.lock) > Date.now() ? esc(M.next.short) + " locks in " + until(M.next.lock) : "") +
       '</p><img src="logo.webp" alt="F1 Fanatics Fantasy League" width="96" height="96" /></div>';
     return h;
   }
@@ -865,28 +772,32 @@
     if (S.model) render();
   }
   function settingsSheet() {
-    var M = S.model, R = window.F1F_RULES, t = themeNow();
-    var h = '<h1>Settings</h1><p class="lede">' + esc((S.data.league && S.data.league.name) || CONFIG.leagueName) + " · league " + esc(S.data.league.id) + "</p>";
-
-
+    var t = themeNow();
+    var h = "<h1>Settings</h1>";
     h += '<div class="group-h">Appearance</div><div class="group card" style="padding:14px"><div class="seg" role="radiogroup" aria-label="Theme">' +
       [["dark", "Dark"], ["light", "Light"], ["system", "Auto"]].map(function (o) {
         return '<button role="radio" aria-checked="' + (t === o[0]) + '" class="' + (t === o[0] ? "on" : "") + '" data-theme-set="' + o[0] + '">' + o[1] + "</button>";
-      }).join("") + '</div><p class="sub" style="margin:8px 2px 0">Auto follows your phone\'s light or dark setting.</p></div>';
+      }).join("") + "</div></div>";
+    h += '<div class="group-h">About</div><div class="group card" style="padding:0">' +
+      '<button class="item" data-open="info"><span class="lab">About the data</span><span class="chev">›</span></button></div>';
+    openSheet(h);
+  }
 
-    var PZ = S.prizes;
+  function rulesSheet() {
+    var R = window.F1F_RULES, PZ = S.prizes, h = "<h1>Rules</h1>";
     if (PZ) {
       var c = PZ.cfg;
-      h += '<div class="group-h">League XP</div><div class="group card rules" style="padding:0"><details open><summary>How XP is shared</summary><div class="body"><table class="rtable"><tbody>' +
-        "<tr><td>Everyone puts in</td><td>" + cur(c.entry) + " × " + PZ.players + " = " + cur(PZ.pot) + "</td></tr>" +
-        "<tr><td>Each race</td><td>" + cur(c.perRound) + " to the top scorer (ties share it)</td></tr>" +
-        "<tr><td>All " + PZ.totalRounds + " races</td><td>" + cur(PZ.roundPool) + "</td></tr>" +
-        "<tr><td>Season XP</td><td>" + cur(PZ.seasonPool) + ", split " + c.split.join(" : ") + "</td></tr>" +
-        "<tr><td>1st / 2nd / 3rd</td><td>" + PZ.seasonPrizes.map(cur).join(" / ") + "</td></tr>" +
-        "</tbody></table><p style=\"margin-top:8px\">Tied final places share the XP for the places they cover.</p></div></details></div>";
+      h += '<div class="group-h">League XP</div><div class="group card rules" style="padding:0"><div class="body" style="padding-top:12px"><table class="rtable"><tbody>' +
+        "<tr><td>Each manager</td><td>" + cur(c.entry) + "</td></tr>" +
+        "<tr><td>Pool</td><td>" + cur(PZ.pot) + "</td></tr>" +
+        "<tr><td>Each race, to the top scorer</td><td>" + cur(c.perRound) + "</td></tr>" +
+        "<tr><td>Season, split " + c.split.join(" : ") + "</td><td>" + cur(PZ.seasonPool) + "</td></tr>" +
+        "<tr><td>1st / 2nd / 3rd</td><td>" + PZ.seasonPrizes.map(function (v) { return cur(v, true); }).join(" / ") + "</td></tr>" +
+        "<tr><td>Ties</td><td>shared</td></tr>" +
+        "</tbody></table></div></div>";
     }
     if (R) {
-      h += '<div class="group-h">Game rules · F1 Fantasy 2026</div><div class="group card rules" style="padding:0">' +
+      h += '<div class="group-h">F1 Fantasy 2026</div><div class="group card rules" style="padding:0">' +
         R.sections.map(function (sec) {
           return "<details><summary>" + esc(sec.title) + '</summary><div class="body">' +
             (sec.intro ? "<p>" + esc(sec.intro) + "</p>" : "") +
@@ -894,13 +805,9 @@
             (sec.notes || []).map(function (n) { return '<p style="margin-top:8px">' + esc(n) + "</p>"; }).join("") +
             "</div></details>";
         }).join("") +
-        '<div class="src">From F1 Fantasy\'s official game rules, checked ' + esc(R.checked) + '. <a href="' + esc(R.source) + '" target="_blank" rel="noopener">Full rules ↗</a></div></div>';
+        '<div class="src"><a href="' + esc(R.source) + '" target="_blank" rel="noopener">Full rules ↗</a></div></div>';
     }
-
-    h += '<div class="group-h">About</div><div class="group card" style="padding:0">' +
-      '<button class="item" data-open="info"><span class="lab">About the data<small>Where it comes from, freshness and checks</small></span><span class="chev">›</span></button></div>';
     openSheet(h);
-
   }
 
   function infoSheet() {
@@ -975,12 +882,7 @@
     if (!t) return;
     if (t.hasAttribute("data-round-nav")) {
       var nr = Number(t.getAttribute("data-round-nav"));
-      if (nr >= 1 && nr <= S.model.N) {
-        S.podR = nr;
-        var box = t.closest(".result"), tmp = document.createElement("div");
-        tmp.innerHTML = podiumHtml(nr, true);
-        box.replaceWith(tmp.firstChild);
-      }
+      if (nr >= 1 && nr <= S.model.N) { S.podR = nr; var y = window.scrollY; render(); window.scrollTo(0, y); }
       return;
     }
     if (t.tagName === "A" && t.hasAttribute("data-r")) e.preventDefault();
@@ -991,13 +893,8 @@
     }
     if (t.hasAttribute("data-open")) {
       var what = t.getAttribute("data-open");
-      if (what === "settings" || what === "rules") {
-        closeDrawer(); settingsSheet();
-        if (what === "rules") {
-          var g = [].slice.call(document.querySelectorAll("#sheetBody .group-h")).filter(function (x) { return /Game rules/.test(x.textContent); })[0];
-          if (g) g.scrollIntoView({ block: "start" });
-        }
-      }
+      if (what === "settings") { closeDrawer(); settingsSheet(); }
+      else if (what === "rules") { closeDrawer(); rulesSheet(); }
       else if (what === "info") infoSheet();
       return;
     }
@@ -1008,7 +905,7 @@
       return;
     }
     if (t.hasAttribute("data-m")) managerSheet(t.getAttribute("data-m"));
-    else if (t.hasAttribute("data-r")) roundSheet(Number(t.getAttribute("data-r")));
+    else if (t.hasAttribute("data-r")) showRound(Number(t.getAttribute("data-r")));
     else if (t.hasAttribute("data-a")) assetSheet(t.getAttribute("data-a"));
   });
   document.addEventListener("change", function (e) {

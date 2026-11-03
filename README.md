@@ -7,19 +7,19 @@ stats around them:
 Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
 
 - **League**: Standings (each row shows that manager's form over the last five
-  races) · XP
-- **Races**: Result (podium of each round, with ‹ › through the season) · Race
-  grid (every manager's points every round) · Winners
-- **Trends**: Position · Gap to the leader · Points per round · Team value
-- **Your team** (middle): your season. Overview · Team · Rounds · Picks (the
-  drivers and constructors who scored for you) · Rivals (who's either side and
-  your head-to-head record against everyone)
-- **Picks**: Template · Drivers · Constructors · Differentials · Trusted
+  races) · XP (the season split and everyone's XP)
+- **Races**: Result (the podium and the rest, the round's Dream team and who
+  scored; ‹ › through the season) · Race grid (tap a round to open its result)
+- **Your team** (middle): Season (four figures and every round) · Team ·
+  Picks (who scored for you) · Rivals (either side, head to head)
+- **Trends**: Position · Gap to the leader
+- **Picks**: Drivers · Constructors · Trusted (most picked across the season)
 
-The **menu** (≡, top right) has your team at the top (with **Change** for the
-dropdown) and My profile, then every **Stats** section (Records · Weekends ·
-Honours · Form · Movement · Value), then **League** (XP, Head to head, Game
-rules) with **Settings** last, and when the data last changed at the foot.
+The **menu** (≡, top right) has your team (with **Change**), the **Stats**
+sections (Records · Weekends · Honours · Movement · Value), **Rules** (league XP
+and F1 Fantasy's scoring) and **Settings** (appearance, about the data).
+
+Each piece of information lives in one place.
 
 Tap any manager, round, driver or constructor for its page.
 
