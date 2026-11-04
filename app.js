@@ -128,7 +128,7 @@
   function youTag() { return ' <span class="you">You</span>'; }
   function managerName(m) {
     var p = m.name.split(" "), last = p.length > 1 ? p.pop() : p[0], first = p.length ? p.join(" ") : "";
-    return (first ? '<span class="fn">' + esc(first) + "</span> " : "") + "<b>" + esc(last) + "</b>" + (isMe(m) ? youTag() : "");
+    return '<span class="nmt">' + (first ? '<span class="fn">' + esc(first) + "</span> " : "") + "<b>" + esc(last) + "</b></span>" + (isMe(m) ? youTag() : "");
   }
 
   /* team-builder / Team of the Week card */
@@ -214,7 +214,7 @@
     if (!model.managers.length || !model.leader) throw new Error("no managers in the data");
     var prizes = CONFIG.xp ? F1F.prizes(model, { entry: CONFIG.xp.stake, perRound: CONFIG.xp.perRace, split: CONFIG.xp.split }) : null;
     var oldLeader = S.model && S.model.leader && S.model.leader.id;
-    S.data = d; S.model = model; S.prizes = prizes; S.fetchedAt = Date.now(); S.first = null; S.codes = null;
+    S.data = d; S.model = model; S.prizes = prizes; S.fetchedAt = Date.now(); S.first = null; S.codes = null; chartScroll = {};
     if (S.me && !byId(S.me)) S.me = null;
     // highlighted lines: drop managers who left; start again if the lead changed hands
     if (S.hl) S.hl = oldLeader !== model.leader.id ? null : S.hl.filter(function (id) { return byId(id); });
@@ -293,7 +293,7 @@
       (o.next != null ? '<button class="rnav" data-round-nav="' + o.next + '"' + (o.nextOff ? " disabled" : "") + ' aria-label="Next round">›</button>' : "") + "</div>";
     h += '<div class="podium">' + card(top[1], 2) + card(top[0], 1) + card(top[2], 3) + "</div>";
     if (rest.length) h += '<div class="rlist">' + rest.map(function (e) {
-      return '<div class="rrow' + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '"><div class="rpos">' + e.rank + '</div><div class="rname"><b>' + esc(e.m.name) + (isMe(e.m) ? youTag() : "") +
+      return '<div class="rrow' + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '"><div class="rpos">' + e.rank + '</div><div class="rname"><b class="nmw"><span class="nmt">' + esc(e.m.name) + "</span>" + (isMe(e.m) ? youTag() : "") +
         "</b><small>" + e.sub + '</small></div><div class="rpts"><b>' + e.value + "</b>" + esc(o.unit) + "</div></div>";
     }).join("") + "</div>";
     return h + "</section>";
@@ -338,7 +338,7 @@
     h += '<section class="card"><div class="tblwrap"><table class="xpt"><thead><tr><th class="l">Manager</th><th>Wins</th><th>Race XP</th><th>On track</th></tr></thead><tbody>';
     rows.forEach(function (m) {
       var x = P.by[m.id], shared = x.raceWins.filter(function (w) { return w.shared; }).length;
-      var track = x.projected
+      var track = m.rank <= places
         ? "<b>" + cur(x.projected, true) + "</b><small>" + ordM(m.rank) + "</small>"
         : '<span class="muted">–</span>' + (cutPts != null ? "<small>" + fmt(cutPts - m.total) + " pts off " + ordinal(places) + "</small>" : "");
       h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><b>' + esc(firstName(m)) + "</b>" + (isMe(m) ? youTag() : "") + "</td>" +
@@ -377,12 +377,13 @@
     (S.data.schedule || []).forEach(function (s) {
       var done = s.round <= M.N, ri = done ? M.roundInfo[s.round - 1] : null;
       var date = s.race ? when(s.race, { day: "numeric", month: "short" }) : "";
-      var pos = '<div class="rpos"><span>' + s.round + "</span>" + (date ? "<small>" + esc(date) + "</small>" : "") + (s.sprint ? '<em class="spr">Sprint</em>' : "") + "</div>";
+      var rn = Number(s.round) || 0;
+      var pos = '<div class="rpos"><span>' + rn + "</span>" + (date ? "<small>" + esc(date) + "</small>" : "") + (s.sprint ? '<em class="spr">Sprint</em>' : "") + "</div>";
       if (done) {
         // the round's top three, F1-style: position and the first three letters of the surname
         var top = M.managers.filter(function (m) { return m.roundRank[s.round] != null && m.roundRank[s.round] <= 3; })
           .sort(function (a, b) { return a.roundRank[s.round] - b.roundRank[s.round] || a.name.localeCompare(b.name); });
-        h += '<div class="rrow" data-r="' + s.round + '">' + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
+        h += '<div class="rrow" data-r="' + rn + '">' + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
           '<span class="top3">' + top.map(function (m) {
             var k = m.roundRank[s.round];
             return '<span class="pc"><i class="' + medal(k) + '">' + k + "</i>" + esc(code(m)) + "</span>";
@@ -434,13 +435,18 @@
   // F1-style three-letter code from the surname (HAM, VER); if two clash, first initial + two letters
   function code(m) {
     if (!S.codes) {
-      var sur = function (x) { var p = x.name.trim().split(/\s+/); return (p[p.length - 1] || "?").replace(/[^A-Za-zÀ-ž]/g, "").toUpperCase(); };
-      var count = {};
+      var sur = function (x) { var p = x.name.trim().split(/\s+/); return (p[p.length - 1] || "?").replace(/[^A-Za-zÀ-ž]/g, "").toUpperCase() || "?"; };
+      var count = {}, used = {};
       S.codes = {};
       S.model.managers.forEach(function (x) { var c = sur(x).slice(0, 3); count[c] = (count[c] || 0) + 1; });
       S.model.managers.forEach(function (x) {
-        var c = sur(x).slice(0, 3);
-        S.codes[x.id] = count[c] > 1 ? (x.name.charAt(0) + sur(x).slice(0, 2)).toUpperCase() : c;
+        var sn = sur(x), c = sn.slice(0, 3);
+        if (count[c] > 1) c = (x.name.charAt(0) + sn.slice(0, 2)).toUpperCase();
+        // still taken: walk further into the surname, then number it
+        for (var i = 3; used[c] && i < sn.length; i++) c = sn.slice(0, 2) + sn.charAt(i);
+        for (var k = 2; used[c]; k++) c = sn.slice(0, 2) + k;
+        used[c] = true;
+        S.codes[x.id] = c;
       });
     }
     return S.codes[m.id] || "?";
@@ -718,7 +724,7 @@
   }
   function roundLabel(r) { var i = S.model.roundInfo[r - 1]; return "R" + r + " " + (i ? i.short : ""); }
   function recRow(rk, m, sub, big) {
-    return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + rk + '</div><div class="main"><div class="n">' + esc(m.name) + (isMe(m) ? youTag() : "") +
+    return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + rk + '</div><div class="main"><div class="n nmw"><span class="nmt">' + esc(m.name) + "</span>" + (isMe(m) ? youTag() : "") +
       '</div><div class="t">' + esc(sub) + '</div></div><div class="big">' + big + "</div></div>";
   }
 
@@ -917,7 +923,7 @@
     var cell = function (id, same) {
       if (!id) return '<div class="cpick none"></div>';
       var A = assetOf(id) || { name: "?", type: "D", team: "" }, n = splitName(A);
-      return '<div class="cpick' + (same ? " same" : "") + '" data-a="' + esc(id) + '" style="' + tc(teamColor(A.team)) + '">' +
+      return '<div class="cpick' + (same ? " same" : "") + '" style="' + tc(teamColor(A.team)) + '">' +
         '<span class="ctile">' + (A.type === "C" ? pic(id, "logo", "clogo") : pic(id, "head", "chead")) + '</span><span class="cnm">' + esc(n.last) + "</span><b>" + fmt(pts[id]) + "</b></div>";
     };
     var block = function (type) {
@@ -934,7 +940,7 @@
     var note = function (m) { return m.pts[r] == null ? "Not in the league yet" : "Team not published for this round"; };
     var h = "";
     if (!known(a) || !known(b)) {
-      h += '<div class="cmp-grid">' + [a, b].map(function (m) { return known(m) ? "" : '<div class="cpick none wide">' + esc(firstName(m)) + ": " + note(m) + "</div>"; }).join("") + "</div>";
+      h += '<div class="cmp-grid">' + [a, b].map(function (m) { return known(m) ? "<div></div>" : '<div class="cpick none wide">' + esc(note(m)) + "</div>"; }).join("") + "</div>";
     }
     if (known(a) || known(b)) h += '<div class="cmp-grid">' + block("D") + '</div><div class="cmp-div"></div><div class="cmp-grid">' + block("C") + "</div>";
     var pa = a.pts[r], pb = b.pts[r], win = pa != null && pb != null ? (pa > pb ? "a" : pb > pa ? "b" : "") : "";
@@ -966,7 +972,7 @@
     ];
     return '<section class="card"><h2>Season</h2><div class="cmp-tbl">' + rows.map(function (x) {
       var f = x[4] || function (v) { return fmt(v); }, va = x[1], vb = x[2], wa = false, wb = false;
-      if (x[3] && va != null && vb != null && va !== vb) { wa = x[3] === "high" ? va > vb : va < vb; wb = !wa; }
+      if (x[3] && va != null && vb != null && f(va) !== f(vb)) { wa = x[3] === "high" ? va > vb : va < vb; wb = !wa; }
       return '<div class="cmp-row"><span class="v a' + (wa ? " win" : "") + '">' + f(va) + '</span><span class="k">' + esc(x[0]) + '</span><span class="v b' + (wb ? " win" : "") + '">' + f(vb) + "</span></div>";
     }).join("") + "</div></section>";
   }
@@ -1006,7 +1012,7 @@
       '<div class="ahero-t">' + (nm.first ? '<span class="fn">' + esc(nm.first) + "</span>" : "") + "<b>" + esc(nm.last) + "</b><small>" + (a.type === "C" ? "Constructor" : esc(a.team)) + " · " + money(o.price) + " " + signedMoney(priceMove(id)) + "</small></div></div>";
     h += figs([{ k: "Season pts", v: fmt(o.seasonPts) }, { k: roundName(M.N), v: fmt(o.lastPts) }, { k: "League", v: o.count + "/" + M.managers.length }, { k: "All teams", v: o.global != null ? o.global + "%" : "–" }]);
     h += '<section class="card"><h2>Owned by</h2><div class="rows">' + (o.owners.length ? o.owners.map(function (m) {
-      return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + m.rank + '</div><div class="main"><div class="n">' + esc(m.name) + (isMe(m) ? youTag() : "") + '</div><div class="t">' + esc(m.team) + "</div></div></div>";
+      return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + m.rank + '</div><div class="main"><div class="n nmw"><span class="nmt">' + esc(m.name) + "</span>" + (isMe(m) ? youTag() : "") + '</div><div class="t">' + esc(m.team) + "</div></div></div>";
     }).join("") : '<div class="empty">Nobody in the league.</div>') + "</div></section>";
     openSheet(h);
   }
@@ -1217,10 +1223,10 @@
   });
   document.addEventListener("change", function (e) {
     if (e.target.classList && e.target.classList.contains("meSelect")) {
-      S.me = e.target.value || null; save("me", S.me); render();
+      S.me = e.target.value || null; save("me", S.me); S.hl = null; render();
       if ($("drawer").open) $("drawerBody").innerHTML = drawerHtml();
       // picked from the compare sheet: carry on to the comparison
-      if (S.cmp && S.cmp.pending && $("sheet").open && S.me) compareSheet(S.cmp.b);
+      if (S.cmp && S.cmp.pending && $("sheet").open && S.me) { S.cmp.pending = false; if (S.me === S.cmp.b) managerSheet(S.cmp.b); else compareSheet(S.cmp.b); }
     }
     if (e.target.classList && e.target.classList.contains("cmpRound") && S.cmp) {
       var a = byId(S.cmp.a), b = byId(S.cmp.b), r = Number(e.target.value), box = $("cmpTeams");
