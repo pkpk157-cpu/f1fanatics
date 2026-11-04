@@ -383,7 +383,7 @@
         var top = M.managers.filter(function (m) { return m.roundRank[s.round] != null && m.roundRank[s.round] <= 3; })
           .sort(function (a, b) { return a.roundRank[s.round] - b.roundRank[s.round] || a.name.localeCompare(b.name); });
         h += '<div class="rrow" data-r="' + s.round + '">' + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
-          '<span class="p3">' + top.map(function (m) {
+          '<span class="top3">' + top.map(function (m) {
             var k = m.roundRank[s.round];
             return '<span class="pc"><i class="' + medal(k) + '">' + k + "</i>" + esc(code(m)) + "</span>";
           }).join("") + "</span>" +
@@ -392,7 +392,7 @@
         var next = M.next && M.next.round === s.round;
         var lock = next && s.lock && Date.parse(s.lock) > Date.now() ? "<small>locks in " + until(s.lock) + "</small>" : "";
         h += '<div class="rrow todo' + (next ? " next" : "") + '">' + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
-          (lock ? '<span class="p3">' + lock + "</span>" : "") +
+          (lock ? '<span class="top3">' + lock + "</span>" : "") +
           '</div><div class="rpts">' + (next ? "<b>NEXT</b>" : "") + "</div></div>";
       }
     });

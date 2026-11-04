@@ -892,8 +892,8 @@ main .board-h { padding-bottom: 14px; }
 .rlist.races .rrow { grid-template-columns: 52px minmax(0, 1fr) 58px; }
 .rlist.races .rpos { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1; }
 .rlist.races .rpos small { font: 600 10px var(--font); letter-spacing: .02em; opacity: .9; white-space: nowrap; }
-.p3 { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 9px; margin-top: 4px; min-width: 0; }
-.p3 small { font-size: 11.5px; color: var(--board-muted); }
+.top3 { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 9px; margin-top: 4px; min-width: 0; }
+.top3 small { font-size: 11.5px; color: var(--board-muted); }
 .pc { display: inline-flex; align-items: center; gap: 4px; font: 600 13px var(--display); letter-spacing: .03em; color: var(--board-fg); }
 .pc i { font-style: normal; display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 3px; font-size: 11px; }
 .pc i.m1 { background: var(--p1-grad); color: #3a2900; }
