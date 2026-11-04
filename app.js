@@ -861,8 +861,53 @@
           return '<option value="' + r + '"' + (r === last ? " selected" : "") + ">R" + r + " · " + esc(M.roundInfo[r - 1].short) + "</option>";
         }).join("") + '</select></div><div id="cmpTeams">' + compareTeams(a, b, last) + "</div></section>";
     }
+    h += compareForm(a, b);
     h += compareSeason(a, b);
     openSheet(h);
+    var fc = document.querySelector("#sheet .fchart");
+    if (fc) fc.scrollLeft = fc.scrollWidth; // open at the latest race
+  }
+
+  // Form: points each race as paired bars, then league position as two lines
+  function compareForm(a, b) {
+    var M = S.model, rounds = M.rounds.filter(function (r) { return a.pts[r] != null || b.pts[r] != null; });
+    if (!rounds.length) return "";
+    var G = 58, padX = 14, W = padX * 2 + rounds.length * G;
+    var barTop = 22, barH = 130, posTop = barTop + barH + 46, posH = 96, axisY = posTop + posH + 34, H = axisY + 8;
+    var hi = Math.max.apply(null, rounds.map(function (r) { return Math.max(a.pts[r] || 0, b.pts[r] || 0); })) || 1;
+    var lo = Math.min(0, Math.min.apply(null, rounds.map(function (r) { return Math.min(a.pts[r] || 0, b.pts[r] || 0); })));
+    var n = M.managers.length;
+    var cx = function (i) { return padX + i * G + G / 2; };
+    var by = function (v) { return barTop + barH - (v - lo) / (hi - lo) * barH; };
+    var py = function (rk) { return posTop + (n > 1 ? (rk - 1) / (n - 1) : 0) * posH; };
+    var g = '<svg class="fsvg" viewBox="0 0 ' + W + " " + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="Form">';
+    var zero = by(0);
+    rounds.forEach(function (r, i) {
+      [[a, "a", -11], [b, "b", 11]].forEach(function (x) {
+        var v = x[0].pts[r];
+        if (v == null) return;
+        var X = cx(i) + x[2], top = Math.min(by(v), zero), h = Math.max(2, Math.abs(by(v) - zero));
+        g += '<rect class="fb' + x[1] + '" x="' + (X - 9) + '" y="' + top.toFixed(1) + '" width="18" height="' + h.toFixed(1) + '" rx="4"/>';
+        g += '<text class="fv" x="' + X + '" y="' + (Math.min(by(v), zero) - 5).toFixed(1) + '">' + fmt(v) + "</text>";
+      });
+      g += '<text class="fx" x="' + cx(i) + '" y="' + axisY + '">' + esc(abbr(roundName(r))) + "</text>";
+    });
+    // positions: the better of the two is labelled above its dot, the other below
+    [[a, "a"], [b, "b"]].forEach(function (x) {
+      var pts = [];
+      rounds.forEach(function (r, i) { var rk = x[0].rankAt[r]; if (rk != null) pts.push([cx(i), py(rk), rk, r]); });
+      if (pts.length > 1) g += '<path class="fl' + x[1] + '" d="' + pathOf(pts.map(function (p) { return [p[0], p[1]]; })) + '"/>';
+      pts.forEach(function (p) {
+        var other = (x[0] === a ? b : a).rankAt[p[3]];
+        var above = other == null || p[2] < other || (p[2] === other && x[1] === "a");
+        g += '<circle class="fd' + x[1] + '" cx="' + p[0] + '" cy="' + p[1].toFixed(1) + '" r="5"/>';
+        g += '<text class="fp" x="' + p[0] + '" y="' + (above ? p[1] - 10 : p[1] + 19).toFixed(1) + '">' + ordinal(p[2]) + "</text>";
+      });
+    });
+    g += "</svg>";
+    var key = function (m, k) { return '<span class="fk"><i class="fk' + k + '"></i>' + esc(firstName(m)) + "</span>"; };
+    return '<section class="card"><h2>Form</h2><div class="fkeys">' + key(a, "a") + key(b, "b") + '</div><div class="fwrap"><span class="fh" style="top:0">Points a race</span><span class="fh" style="top:' + (posTop - 38) + 'px">League position</span>' +
+      '<div class="fchart">' + g + "</div></div></section>";
   }
 
   function compareTeams(a, b, r) {

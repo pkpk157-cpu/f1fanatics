@@ -910,3 +910,21 @@ b, strong { font-weight: 600; }
   font: 600 9px/1.1 var(--font); font-style: normal; letter-spacing: .08em; text-transform: uppercase; -webkit-text-fill-color: #fff; }
 .pod-name .you { margin: 3px auto 0; display: table; }
 .who .t .you { margin: 0 5px 0 0; vertical-align: 1px; }
+
+/* compare: form (points a race + league position) */
+.fkeys { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; }
+.fk { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; font-weight: 600; }
+.fk i { width: 12px; height: 12px; border-radius: 3px; }
+.fka { background: var(--me); } .fkb { background: var(--accent); }
+.fchart { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 -6px; }
+.fchart::-webkit-scrollbar { display: none; }
+.fsvg { display: block; max-width: none; }
+.fwrap { position: relative; }
+.fwrap .fh { position: absolute; left: 0; z-index: 1; pointer-events: none; font: 600 10.5px var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.fsvg .fba { fill: var(--me); } .fsvg .fbb { fill: var(--accent); }
+.fsvg .fv { font: 600 11px var(--display); fill: var(--text); text-anchor: middle; }
+.fsvg .fx { font: 600 11px var(--font); fill: var(--muted); text-anchor: middle; }
+.fsvg .fla, .fsvg .flb { fill: none; stroke-width: 2.4; stroke-linejoin: round; }
+.fsvg .fla { stroke: var(--me); } .fsvg .flb { stroke: var(--accent); }
+.fsvg .fda { fill: var(--me); } .fsvg .fdb { fill: var(--accent); }
+.fsvg .fp { font: 600 11px var(--font); fill: var(--muted); text-anchor: middle; }

@@ -32,7 +32,9 @@ Each piece of information lives in one place.
 Tap any manager, round, driver or constructor for its page. A manager's page has **Compare**:
 you and them side by side, both teams for any race (chosen from a list,
 shared picks dimmed so the differences stand out, each pick's points and
-both round scores), then the season in numbers with the better side lit.
+both round scores), **Form** (points each race as paired bars and league
+position as two lines, scrolling sideways from the latest race), then the
+season in numbers with the better side lit.
 
 Choosing your team (top of the menu) marks you everywhere with a small red
 **YOU** tag (no colour highlight) and is saved on that device only. **Settings** has Dark, Light and Auto themes (dark is the default),
