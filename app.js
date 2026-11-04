@@ -380,10 +380,10 @@
         // the round's top three, F1-style: position and the first three letters of the surname
         var top = M.managers.filter(function (m) { return m.roundRank[s.round] != null && m.roundRank[s.round] <= 3; })
           .sort(function (a, b) { return a.roundRank[s.round] - b.roundRank[s.round] || a.name.localeCompare(b.name); });
-        h += '<div class="rrow' + (ri.winners.some(isMe) ? " me" : "") + '" data-r="' + s.round + '">' + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
+        h += '<div class="rrow" data-r="' + s.round + '">' + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
           '<span class="p3">' + top.map(function (m) {
             var k = m.roundRank[s.round];
-            return '<span class="pc' + (isMe(m) ? " me" : "") + '"><i class="' + medal(k) + '">' + k + "</i>" + esc(code(m)) + "</span>";
+            return '<span class="pc"><i class="' + medal(k) + '">' + k + "</i>" + esc(code(m)) + "</span>";
           }).join("") + "</span>" +
           '</div><div class="rpts"><b>' + fmt(ri.high) + "</b>PTS</div></div>";
       } else {
