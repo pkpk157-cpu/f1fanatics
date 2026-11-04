@@ -246,7 +246,7 @@
       return '<span class="form mini">' + m.formRanks.map(function (r) { return formChip(r, n); }).join("") + "</span>" + (mv ? " " + mv : "");
     };
     return SUB("table") + podiumBoard({
-      title: '<span class="lime">STANDINGS</span> <span class="sl">/</span> ' + esc(String(S.data.league.season)), unit: "PTS",
+      title: lbToggle("table"), unit: "PTS",
       entries: M.managers.map(function (m) {
         var gap = m.gapLeader ? ' <span class="gap">−' + fmt(m.gapLeader) + "</span>" : "";
         return { m: m, rank: m.rank, value: fmt(m.total), extra: form(m) + gap, sub: form(m) + gap };
@@ -300,20 +300,38 @@
     });
   }
 
+  // the Points / XP switch on the League board (the two views stay separate routes, so the choice is remembered)
+  function lbToggle(on) {
+    return '<span class="lbt" role="tablist">' + [["table", "Points"], ["prizes", "XP"]].map(function (x) {
+      return '<a href="#league/' + x[0] + '" role="tab"' + (x[0] === on ? ' class="on" aria-selected="true"' : ' aria-selected="false"') + ">" + x[1] + "</a>";
+    }).join("") + '</span> <span class="sl">/</span> ' + esc(String(S.data.league.season));
+  }
+
   function viewPrizes() {
     var P = S.prizes, M = S.model;
     if (!P) return "";
     // ordered by XP earned so far (race XP + the season XP if it ended now); ties share a place
     var rows = M.managers.slice().sort(function (a, b) { return P.by[b.id].total - P.by[a.id].total || a.rank - b.rank; });
     var rk = F1F.rankBy(rows, function (m) { return Math.round(P.by[m.id].total); });
-    var h = SUB("prizes") + podiumBoard({
-      title: '<span class="lime">XP</span> <span class="sl">/</span> ' + esc(String(S.data.league.season)), unit: "XP",
-      entries: rows.map(function (m) { return { m: m, rank: rk.get(m), value: cur(P.by[m.id].total, true), sub: esc(m.team) }; })
-    });
-
-    // how each total is made: race wins x race XP, plus the season XP their place is on track for
     var places = P.seasonPrizes.length, cut = M.managers.filter(function (m) { return m.rank <= places; });
     var cutPts = cut.length ? Math.min.apply(null, cut.map(function (m) { return m.total; })) : null;
+    // how each total is made: race wins and their XP, plus the season XP their place is on track for
+    var wins = function (m) {
+      var x = P.by[m.id], n = x.raceWins.length, sh = x.raceWins.filter(function (w) { return w.shared; }).length;
+      return n + (n === 1 ? " win" : " wins") + (sh ? " (" + sh + " shared)" : "");
+    };
+    var h = SUB("prizes") + podiumBoard({
+      title: lbToggle("prizes"), unit: "XP",
+      entries: rows.map(function (m) {
+        var x = P.by[m.id], top = m.rank <= places;
+        return { m: m, rank: rk.get(m), value: cur(x.total, true),
+          // podium: the two parts of the total
+          extra: '<span class="xl">' + x.raceWins.length + (x.raceWins.length === 1 ? " win" : " wins") + '</span><span class="xl">' + cur(x.race, true) + " race</span>" +
+            (top ? '<span class="xl">' + cur(x.projected, true) + " season</span>" : ""),
+          // below: their XP is all race XP, so show the wins and how far they are from the season XP
+          sub: esc(wins(m)) + (top ? " · " + cur(x.projected, true) + " season XP" : cutPts != null ? " · " + fmt(cutPts - m.total) + " pts off " + ordinal(places) : "") };
+      })
+    });
     var paid = P.payouts.reduce(function (s, x) { return s + (x.winners.length ? P.cfg.perRound : 0); }, 0);
     h += figs([
       { k: "XP pool", v: cur(P.pot, true), d: P.players + " × " + fmt(P.cfg.entry) },
@@ -321,18 +339,7 @@
       { k: "Races left", v: fmt(P.roundsLeft), d: cur(P.roundsLeft * P.cfg.perRound) },
       { k: "Season XP", v: cur(P.seasonPool, true), d: "top " + places }
     ]);
-    h += '<section class="card"><div class="tblwrap"><table class="xpt"><thead><tr><th class="l">Manager</th><th>Wins</th><th>Race XP</th><th>On track</th></tr></thead><tbody>';
-    rows.forEach(function (m) {
-      var x = P.by[m.id], shared = x.raceWins.filter(function (w) { return w.shared; }).length;
-      var track = m.rank <= places
-        ? "<b>" + cur(x.projected, true) + "</b><small>" + ordM(m.rank) + "</small>"
-        : '<span class="muted">–</span>' + (cutPts != null ? "<small>" + fmt(cutPts - m.total) + " pts off " + ordinal(places) + "</small>" : "");
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><b>' + esc(firstName(m)) + "</b>" + (isMe(m) ? youTag() : "") + "</td>" +
-        "<td>" + (x.raceWins.length ? "<b>" + x.raceWins.length + "</b>" + (shared ? "<small>" + shared + " shared</small>" : "") : '<span class="muted">0</span>') + "</td>" +
-        "<td>" + (x.race ? cur(x.race, true) : '<span class="muted">0</span>') + "</td>" +
-        "<td>" + track + "</td></tr>";
-    });
-    return h + "</tbody></table></div></section>";
+    return h;
   }
 
   function dreamTeam(r) {
@@ -1141,7 +1148,7 @@
     var fn = { league: function () { return viewStandings() + viewPrizes(); }, races: viewRaces, you: viewYou, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
     var cur = S.sub[S.tab] || SUBS[S.tab][0][0];
     // Stats is reached from the menu, which lists every section, so no pill row there
-    $("subtabs").innerHTML = S.tab === "stats" ? "" : SUBS[S.tab].map(function (x) {
+    $("subtabs").innerHTML = S.tab === "stats" || S.tab === "league" ? "" : SUBS[S.tab].map(function (x) {
       return '<a href="#' + S.tab + "/" + x[0] + '" class="' + (x[0] === cur ? "on" : "") + '"' + (x[0] === cur ? ' aria-current="page"' : "") + ">" + esc(x[1]) + "</a>";
     }).join("");
     var on = $("subtabs").querySelector(".on");

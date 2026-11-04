@@ -6,10 +6,12 @@ stats around them:
 
 Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
 
-- **League**: Standings (a podium for the top three, then everyone else; each
-  shows their form over the last five races and the gap to the leader) · XP (the XP podium, the pool, then for everyone: race wins, the race
-  XP they made, and the season XP their place is on track for, or how many
-  points off 3rd they are)
+- **League**: one board with a **Points / XP** switch on it (no sub-tabs; the
+  choice is remembered). Points: the standings podium and everyone else, with
+  form over the last five races, places moved and the gap to the leader. XP:
+  the same board in XP order, each line showing race wins and race XP, and the
+  season XP their place is on track for (or how many points off 3rd they
+  are), with the pool, race XP, races left and season XP below
 - **Races**: Races (every race of the season: its number with the date (and
   sprint) beneath, and under the name the round's top three as F1-style codes,
   e.g. 1 VOH 2 PUR 3 KAP; tap a finished one for
@@ -63,7 +65,7 @@ initials. The display type is Titillium Web (SIL Open Font License, in
 
 ## League XP
 
-Set in `config.js` (`xp`) and shown under **League › XP**, on **Your
+Set in `config.js` (`xp`) and shown on the **League** board (switch to **XP**), on **Your
 team › Overview**, on the round winners board and in Settings:
 
 - Everyone puts in 5,000 XP → a 50,000 XP pool (10 managers).
