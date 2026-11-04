@@ -7,7 +7,9 @@ stats around them:
 Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
 
 - **League**: Standings (each row shows that manager's form over the last five
-  races) · XP (the season split and everyone's XP)
+  races) · XP (the XP podium, the pool, then for everyone: race wins, the race
+  XP they made, and the season XP their place is on track for, or how many
+  points off 3rd they are)
 - **Races**: Races (every race of the season by name; tap a finished one for
   its podium, Dream team and who scored, ‹ › through the season) · Race grid
 - **Your team** (middle): Season (four figures and every round) · Team ·

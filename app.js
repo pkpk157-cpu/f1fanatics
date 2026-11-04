@@ -318,14 +318,33 @@
     // ordered by XP earned so far (race XP + the season XP if it ended now); ties share a place
     var rows = M.managers.slice().sort(function (a, b) { return P.by[b.id].total - P.by[a.id].total || a.rank - b.rank; });
     var rk = F1F.rankBy(rows, function (m) { return Math.round(P.by[m.id].total); });
-    return SUB("prizes") + podiumBoard({
+    var h = SUB("prizes") + podiumBoard({
       title: '<span class="lime">XP</span> <span class="sl">/</span> ' + esc(String(S.data.league.season)), unit: "XP",
-      entries: rows.map(function (m) {
-        var x = P.by[m.id];
-        return { m: m, rank: rk.get(m), value: cur(x.total, true),
-          sub: cur(x.race, true) + " race" + (x.projected ? " · " + cur(x.projected, true) + " season" : "") + ' · <span class="' + (x.net >= 0 ? "up" : "down") + '">' + (x.net >= 0 ? "+" : "") + cur(x.net, true) + " net</span>" };
-      })
+      entries: rows.map(function (m) { return { m: m, rank: rk.get(m), value: cur(P.by[m.id].total, true), sub: esc(m.team) }; })
     });
+
+    // how each total is made: race wins x race XP, plus the season XP their place is on track for
+    var places = P.seasonPrizes.length, cut = M.managers.filter(function (m) { return m.rank <= places; });
+    var cutPts = cut.length ? Math.min.apply(null, cut.map(function (m) { return m.total; })) : null;
+    var paid = P.payouts.reduce(function (s, x) { return s + (x.winners.length ? P.cfg.perRound : 0); }, 0);
+    h += figs([
+      { k: "XP pool", v: cur(P.pot, true), d: P.players + " × " + fmt(P.cfg.entry) },
+      { k: "Race XP", v: cur(paid, true), d: "of " + cur(P.roundPool, true) },
+      { k: "Races left", v: fmt(P.roundsLeft), d: cur(P.roundsLeft * P.cfg.perRound) },
+      { k: "Season XP", v: cur(P.seasonPool, true), d: "top " + places }
+    ]);
+    h += '<section class="card"><div class="tblwrap"><table class="xpt"><thead><tr><th class="l">Manager</th><th>Wins</th><th>Race XP</th><th>On track</th></tr></thead><tbody>';
+    rows.forEach(function (m) {
+      var x = P.by[m.id], shared = x.raceWins.filter(function (w) { return w.shared; }).length;
+      var track = x.projected
+        ? "<b>" + cur(x.projected, true) + "</b><small>" + ordM(m.rank) + "</small>"
+        : '<span class="muted">–</span>' + (cutPts != null ? "<small>" + fmt(cutPts - m.total) + " pts off " + ordinal(places) + "</small>" : "");
+      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><b>' + esc(firstName(m)) + "</b></td>" +
+        "<td>" + (x.raceWins.length ? "<b>" + x.raceWins.length + "</b>" + (shared ? "<small>" + shared + " shared</small>" : "") : '<span class="muted">0</span>') + "</td>" +
+        "<td>" + (x.race ? cur(x.race, true) : '<span class="muted">0</span>') + "</td>" +
+        "<td>" + track + "</td></tr>";
+    });
+    return h + "</tbody></table></div></section>";
   }
 
   function dreamTeam(r) {
