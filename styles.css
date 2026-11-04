@@ -895,3 +895,18 @@ main .board-h { padding-bottom: 14px; }
 .xpt td small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; white-space: nowrap; }
 .xpt td { vertical-align: middle; }
 
+
+/* races list: date under the round number; the round's top three as codes */
+.rlist.races .rrow { grid-template-columns: 52px minmax(0, 1fr) 58px; }
+.rlist.races .rpos { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1; }
+.rlist.races .rpos small { font: 700 10px var(--font); letter-spacing: .02em; opacity: .8; white-space: nowrap; }
+.p3 { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 9px; margin-top: 4px; min-width: 0; }
+.p3 small { font-size: 11.5px; color: var(--board-muted); }
+.pc { display: inline-flex; align-items: center; gap: 4px; font: 900 13px var(--display); letter-spacing: .03em; color: var(--board-fg); }
+.pc.me { color: var(--me); }
+.pc i { font-style: normal; display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 3px; font-size: 11px; }
+.pc i.m1 { background: var(--p1-grad); color: #3a2900; }
+.pc i.m2 { background: var(--p2-grad); color: #23262c; }
+.pc i.m3 { background: var(--p3-grad); color: #2e1606; }
+.rlist.races .rpos .spr { font: 800 7.5px var(--font); letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; padding: 1px 3px; border-radius: 3px; background: rgba(0, 0, 0, .28); color: #fff; }
+.rlist.races .rrow.todo .rpos .spr { background: var(--fill); color: var(--board-muted); }

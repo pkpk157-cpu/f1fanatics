@@ -10,7 +10,9 @@ Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
   races) · XP (the XP podium, the pool, then for everyone: race wins, the race
   XP they made, and the season XP their place is on track for, or how many
   points off 3rd they are)
-- **Races**: Races (every race of the season by name; tap a finished one for
+- **Races**: Races (every race of the season: its number with the date (and
+  sprint) beneath, and under the name the round's top three as F1-style codes,
+  e.g. 1 VOH 2 PUR 3 KAP; tap a finished one for
   its podium, Dream team and who scored, ‹ › through the season) · Race grid
 - **Your team** (middle): Season (four figures and every round) · Team ·
   Picks (who scored for you) · Rivals (either side, head to head)

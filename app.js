@@ -212,7 +212,7 @@
     if (!model.managers.length || !model.leader) throw new Error("no managers in the data");
     var prizes = CONFIG.xp ? F1F.prizes(model, { entry: CONFIG.xp.stake, perRound: CONFIG.xp.perRace, split: CONFIG.xp.split }) : null;
     var oldLeader = S.model && S.model.leader && S.model.leader.id;
-    S.data = d; S.model = model; S.prizes = prizes; S.fetchedAt = Date.now(); S.first = null;
+    S.data = d; S.model = model; S.prizes = prizes; S.fetchedAt = Date.now(); S.first = null; S.codes = null;
     if (S.me && !byId(S.me)) S.me = null;
     // highlighted lines: drop managers who left; start again if the lead changed hands
     if (S.hl) S.hl = oldLeader !== model.leader.id ? null : S.hl.filter(function (id) { return byId(id); });
@@ -375,15 +375,23 @@
     (S.data.schedule || []).forEach(function (s) {
       var done = s.round <= M.N, ri = done ? M.roundInfo[s.round - 1] : null;
       var date = s.race ? when(s.race, { day: "numeric", month: "short" }) : "";
+      var pos = '<div class="rpos"><span>' + s.round + "</span>" + (date ? "<small>" + esc(date) + "</small>" : "") + (s.sprint ? '<em class="spr">Sprint</em>' : "") + "</div>";
       if (done) {
-        h += '<div class="rrow' + (ri.winners.some(isMe) ? " me" : "") + '" data-r="' + s.round + '"><div class="rpos">' + s.round + '</div><div class="rname"><b>' + esc(s.name) +
-          "</b><small>" + esc(date) + (s.sprint ? " · sprint" : "") + " · " + esc(ri.winners.map(function (m) { return m.name; }).join(" & ")) +
-          '</small></div><div class="rpts"><b>' + fmt(ri.high) + "</b>PTS</div></div>";
+        // the round's top three, F1-style: position and the first three letters of the surname
+        var top = M.managers.filter(function (m) { return m.roundRank[s.round] != null && m.roundRank[s.round] <= 3; })
+          .sort(function (a, b) { return a.roundRank[s.round] - b.roundRank[s.round] || a.name.localeCompare(b.name); });
+        h += '<div class="rrow' + (ri.winners.some(isMe) ? " me" : "") + '" data-r="' + s.round + '">' + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
+          '<span class="p3">' + top.map(function (m) {
+            var k = m.roundRank[s.round];
+            return '<span class="pc' + (isMe(m) ? " me" : "") + '"><i class="' + medal(k) + '">' + k + "</i>" + esc(code(m)) + "</span>";
+          }).join("") + "</span>" +
+          '</div><div class="rpts"><b>' + fmt(ri.high) + "</b>PTS</div></div>";
       } else {
         var next = M.next && M.next.round === s.round;
-        h += '<div class="rrow todo' + (next ? " next" : "") + '"><div class="rpos">' + s.round + '</div><div class="rname"><b>' + esc(s.name) +
-          "</b><small>" + esc(date) + (s.sprint ? " · sprint" : "") + (next && s.lock && Date.parse(s.lock) > Date.now() ? " · locks in " + until(s.lock) : "") +
-          '</small></div><div class="rpts">' + (next ? "<b>NEXT</b>" : "") + "</div></div>";
+        var lock = next && s.lock && Date.parse(s.lock) > Date.now() ? "<small>locks in " + until(s.lock) + "</small>" : "";
+        h += '<div class="rrow todo' + (next ? " next" : "") + '">' + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
+          (lock ? '<span class="p3">' + lock + "</span>" : "") +
+          '</div><div class="rpts">' + (next ? "<b>NEXT</b>" : "") + "</div></div>";
       }
     });
     return h + "</div></section>";
@@ -420,6 +428,20 @@
       "Bahrain": "BHR", "Saudi Arabian": "KSA", "Singapore": "SGP", "United States": "USA", "Mexico City": "MEX", "São Paulo": "BRA", "Las Vegas": "LVG",
       "Qatar": "QAT", "Abu Dhabi": "ABU", "Emilia Romagna": "EMI", "Madrid": "MAD" };
     return A[s] || String(s).slice(0, 3).toUpperCase();
+  }
+  // F1-style three-letter code from the surname (HAM, VER); if two clash, first initial + two letters
+  function code(m) {
+    if (!S.codes) {
+      var sur = function (x) { var p = x.name.trim().split(/\s+/); return (p[p.length - 1] || "?").replace(/[^A-Za-zÀ-ž]/g, "").toUpperCase(); };
+      var count = {};
+      S.codes = {};
+      S.model.managers.forEach(function (x) { var c = sur(x).slice(0, 3); count[c] = (count[c] || 0) + 1; });
+      S.model.managers.forEach(function (x) {
+        var c = sur(x).slice(0, 3);
+        S.codes[x.id] = count[c] > 1 ? (x.name.charAt(0) + sur(x).slice(0, 2)).toUpperCase() : c;
+      });
+    }
+    return S.codes[m.id] || "?";
   }
   // first names, with a surname initial where two managers share one; worked out once per data
   function firstName(m) {
