@@ -124,9 +124,11 @@
       '<div class="sbar">' + (o.face || "") + '<div class="snm"><div class="sname">' + o.name + "</div>" + (o.sub ? '<div class="ssub">' + o.sub + "</div>" : "") + "</div></div>" +
       '<div class="spts"><span class="num">' + o.pts + "</span>" + (o.ptsSub ? "<small>" + o.ptsSub + "</small>" : "") + "</div></div>";
   }
+  // marks your own name wherever managers are listed
+  function youTag() { return ' <span class="you">You</span>'; }
   function managerName(m) {
     var p = m.name.split(" "), last = p.length > 1 ? p.pop() : p[0], first = p.length ? p.join(" ") : "";
-    return (first ? '<span class="fn">' + esc(first) + "</span> " : "") + "<b>" + esc(last) + "</b>" + (isMe(m) ? ' <span class="pill me">you</span>' : "");
+    return (first ? '<span class="fn">' + esc(first) + "</span> " : "") + "<b>" + esc(last) + "</b>" + (isMe(m) ? youTag() : "");
   }
 
   /* team-builder / Team of the Week card */
@@ -175,8 +177,8 @@
     return '<span style="background:' + col + '" title="' + ordinal(rank) + ' in the round">' + rank + "</span>";
   }
   function whoCell(m) {
-    return '<td class="l who"><div class="n">' + esc(m.name) + (isMe(m) ? ' <span class="pill me">you</span>' : "") +
-      '</div><div class="t">' + esc(m.team) + "</div></td>";
+    return '<td class="l who"><div class="n">' + esc(m.name) +
+      '</div><div class="t">' + (isMe(m) ? '<span class="you">You</span>' : "") + esc(m.team) + "</div></td>";
   }
 
   /* ---------------- data ---------------- */
@@ -282,7 +284,7 @@
       var n = lastFirst(e.m);
       return '<div class="pod p' + place + " " + medal(e.rank) + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '">' +
         '<div class="pod-img"><span class="pod-num">' + e.rank + "</span></div>" +
-        '<div class="pod-name">' + (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + '</b><span class="pt">' + esc(e.m.team) + "</span>" +
+        '<div class="pod-name">' + (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b>" + (isMe(e.m) ? youTag() : "") + '<span class="pt">' + esc(e.m.team) + "</span>" +
         '<span class="pp"><b>' + e.value + "</b> " + esc(o.unit) + "</span></div></div>";
     };
     var top = o.entries.slice(0, 3), rest = o.entries.slice(3);
@@ -291,7 +293,7 @@
       (o.next != null ? '<button class="rnav" data-round-nav="' + o.next + '"' + (o.nextOff ? " disabled" : "") + ' aria-label="Next round">›</button>' : "") + "</div>";
     h += '<div class="podium">' + card(top[1], 2) + card(top[0], 1) + card(top[2], 3) + "</div>";
     if (rest.length) h += '<div class="rlist">' + rest.map(function (e) {
-      return '<div class="rrow' + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '"><div class="rpos">' + e.rank + '</div><div class="rname"><b>' + esc(e.m.name) +
+      return '<div class="rrow' + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '"><div class="rpos">' + e.rank + '</div><div class="rname"><b>' + esc(e.m.name) + (isMe(e.m) ? youTag() : "") +
         "</b><small>" + e.sub + '</small></div><div class="rpts"><b>' + e.value + "</b>" + esc(o.unit) + "</div></div>";
     }).join("") + "</div>";
     return h + "</section>";
@@ -339,7 +341,7 @@
       var track = x.projected
         ? "<b>" + cur(x.projected, true) + "</b><small>" + ordM(m.rank) + "</small>"
         : '<span class="muted">–</span>' + (cutPts != null ? "<small>" + fmt(cutPts - m.total) + " pts off " + ordinal(places) + "</small>" : "");
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><b>' + esc(firstName(m)) + "</b></td>" +
+      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><b>' + esc(firstName(m)) + "</b>" + (isMe(m) ? youTag() : "") + "</td>" +
         "<td>" + (x.raceWins.length ? "<b>" + x.raceWins.length + "</b>" + (shared ? "<small>" + shared + " shared</small>" : "") : '<span class="muted">0</span>') + "</td>" +
         "<td>" + (x.race ? cur(x.race, true) : '<span class="muted">0</span>') + "</td>" +
         "<td>" + track + "</td></tr>";
@@ -409,7 +411,7 @@
     M.roundInfo.forEach(function (ri) { h += '<th class="rd click" data-r="' + ri.round + '" title="' + esc(ri.name) + '">' + esc(abbr(ri.short)) + "<br>" + ri.round + "</th>"; });
     h += '<th>Total</th></tr></thead><tbody>';
     M.managers.forEach(function (m) {
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><b>' + esc(firstName(m)) + "</b></td>";
+      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><b>' + esc(firstName(m)) + "</b>" + (isMe(m) ? youTag() : "") + "</td>";
       M.roundInfo.forEach(function (ri) {
         var p = m.pts[ri.round], rr = m.roundRank[ri.round];
         if (p == null) { h += '<td class="cell none">·</td>'; return; }
@@ -716,7 +718,7 @@
   }
   function roundLabel(r) { var i = S.model.roundInfo[r - 1]; return "R" + r + " " + (i ? i.short : ""); }
   function recRow(rk, m, sub, big) {
-    return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + rk + '</div><div class="main"><div class="n">' + esc(m.name) +
+    return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + rk + '</div><div class="main"><div class="n">' + esc(m.name) + (isMe(m) ? youTag() : "") +
       '</div><div class="t">' + esc(sub) + '</div></div><div class="big">' + big + "</div></div>";
   }
 
@@ -759,7 +761,7 @@
   function managerParts(m) {
     var M = S.model, n = M.managers.length, P = {};
     var o = {}; M.ownership.forEach(function (x) { o[x.id] = x; });
-    P.head = "<h1>" + esc(m.name) + (isMe(m) ? ' <span class="pill me">you</span>' : "") + '</h1><p class="lede">' + esc(m.team) + " · " + ordinal(m.rank) + " · " + fmt(m.total) + " pts" +
+    P.head = "<h1>" + esc(m.name) + (isMe(m) ? youTag() : "") + '</h1><p class="lede">' + esc(m.team) + " · " + ordinal(m.rank) + " · " + fmt(m.total) + " pts" +
       (m.gapLeader ? " · −" + fmt(m.gapLeader) : "") + "</p>";
     var W = S.prizes && S.prizes.by[m.id];
     P.tiles = figs([
@@ -959,7 +961,7 @@
       '<div class="ahero-t">' + (nm.first ? '<span class="fn">' + esc(nm.first) + "</span>" : "") + "<b>" + esc(nm.last) + "</b><small>" + (a.type === "C" ? "Constructor" : esc(a.team)) + " · " + money(o.price) + " " + signedMoney(priceMove(id)) + "</small></div></div>";
     h += figs([{ k: "Season pts", v: fmt(o.seasonPts) }, { k: roundName(M.N), v: fmt(o.lastPts) }, { k: "League", v: o.count + "/" + M.managers.length }, { k: "All teams", v: o.global != null ? o.global + "%" : "–" }]);
     h += '<section class="card"><h2>Owned by</h2><div class="rows">' + (o.owners.length ? o.owners.map(function (m) {
-      return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + m.rank + '</div><div class="main"><div class="n">' + esc(m.name) + '</div><div class="t">' + esc(m.team) + "</div></div></div>";
+      return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + m.rank + '</div><div class="main"><div class="n">' + esc(m.name) + (isMe(m) ? youTag() : "") + '</div><div class="t">' + esc(m.team) + "</div></div></div>";
     }).join("") : '<div class="empty">Nobody in the league.</div>') + "</div></section>";
     openSheet(h);
   }

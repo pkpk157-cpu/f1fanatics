@@ -10,7 +10,7 @@
   --red-hi: #ff2d26;
   --accent: #ff3b30;
   --accent-soft: rgba(255, 45, 38, 0.18);
-  --me: #64d2ff;
+  --me: #ffffff;
   --me-soft: rgba(100, 210, 255, 0.14);
   --up: #30d158;
   --down: #ff453a;
@@ -54,7 +54,7 @@
   --faint: rgba(60, 60, 67, 0.45);
   --accent: #e10600;
   --accent-soft: rgba(225, 6, 0, 0.10);
-  --me: #0a84ff;
+  --me: #111114;
   --me-soft: rgba(10, 132, 255, 0.12);
   --up: #1f9d47;
   --down: #d70015;
@@ -91,7 +91,7 @@
   --faint: rgba(60, 60, 67, 0.45);
   --accent: #e10600;
   --accent-soft: rgba(225, 6, 0, 0.10);
-  --me: #0a84ff;
+  --me: #111114;
   --me-soft: rgba(10, 132, 255, 0.12);
   --up: #1f9d47;
   --down: #d70015;
@@ -250,7 +250,6 @@ th.c, td.c { text-align: center; }
 td.num { font-weight: 600; }
 tr.click { cursor: pointer; }
 tr.click:active td { background: var(--glass-2); }
-tr.me td { background: var(--me-soft); }
 .pos { width: 28px; font-weight: 600; text-align: center; font-style: italic; }
 tr:nth-child(1) .pos { color: var(--gold); }
 tr:nth-child(2) .pos { color: var(--silver); }
@@ -268,13 +267,11 @@ tr:nth-child(3) .pos { color: #e0995a; }
   display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
   background: var(--glass-2); color: var(--muted); font-style: normal;
 }
-.pill.me { background: var(--me-soft); color: var(--me); }
 
 /* race-by-race grid */
 .heat { font-size: 12.5px; border-collapse: separate; border-spacing: 2px; }
 .heat th, .heat td { padding: 6px 4px; text-align: center; border: 0; }
 .heat td.l, .heat th.l { text-align: left; position: sticky; left: 0; z-index: 1; padding-right: 8px; background: var(--sticky); }
-.heat tr.me td.l { box-shadow: inset 3px 0 0 var(--me); }
 .heat td.cell { min-width: 34px; border-radius: 7px; font-weight: 650; }
 .heat td.cell.win { box-shadow: inset 0 0 0 2px var(--gold); }
 .heat td.cell.none { color: var(--faint); font-weight: 400; }
@@ -336,7 +333,6 @@ tr:nth-child(3) .pos { color: #e0995a; }
 .row .big { font-weight: 600; font-size: 17px; }
 .row.click { cursor: pointer; }
 .row.click:active { background: var(--glass-2); }
-.row.me .main .n { color: var(--me); }
 
 .form { display: inline-flex; gap: 3px; }
 .form span {
@@ -501,8 +497,6 @@ tr:nth-child(3) .pos { color: #e0995a; }
 }
 .spts small { font-family: var(--font); font-style: normal; font-weight: 600; font-size: 10.5px; opacity: .8; margin-top: 3px; }
 .srow.lead .spts .num { background: var(--gold-num); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
-.srow.me .spos { -webkit-text-stroke-color: var(--me); }
-.srow.me .sbar { box-shadow: inset 0 0 0 2px var(--me); }
 @media (max-width: 380px) { .srow { grid-template-columns: 38px minmax(0, 1fr) 76px; } .sname b { font-size: 17px; } .spts { font-size: 21px; } }
 
 /* team-builder / Team of the Week cards */
@@ -610,7 +604,6 @@ tr:nth-child(3) .pos { color: #e0995a; }
 .pod-name b { font-weight: 600; font-size: 15px; }
 .pod-name .fn { display: block; font-weight: 600; font-size: 10.5px; opacity: .8; }
 .pod-name .pt { display: block; font-family: var(--font); text-transform: none; font-size: 10.5px; font-weight: 500; opacity: .7; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
-.pod.me .pod-name { box-shadow: inset 0 -3px 0 var(--me); }
 .rlist { margin-top: 10px; display: grid; }
 .rrow { display: grid; grid-template-columns: 40px minmax(0, 1fr) 58px; align-items: stretch; min-height: 50px; cursor: pointer; }
 .rrow:nth-child(odd) { background: var(--bar-alt); }
@@ -622,7 +615,6 @@ tr:nth-child(3) .pos { color: #e0995a; }
 .rname .up, .rname .down { font-weight: 600; }
 .rpts { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--pts-hi); font-family: var(--display); font-weight: 600; font-size: 9.5px; line-height: 1; }
 .rpts b { font-size: 19px; font-weight: 600; }
-.rrow.me .rname b { color: var(--me); }
 
 
 .sheet .result { margin-top: 4px; }
@@ -913,3 +905,8 @@ main .board-h { padding-bottom: 14px; }
 
 /* body text emphasis: semibold, not bold (display text keeps its own cut) */
 b, strong { font-weight: 600; }
+/* your name: a small red tag instead of a colour */
+.you { display: inline-block; vertical-align: 2px; margin-left: 6px; padding: 2px 5px 1px; border-radius: 4px; background: var(--red); color: #fff;
+  font: 600 9px/1.1 var(--font); font-style: normal; letter-spacing: .08em; text-transform: uppercase; -webkit-text-fill-color: #fff; }
+.pod-name .you { margin: 3px auto 0; display: table; }
+.who .t .you { margin: 0 5px 0 0; vertical-align: 1px; }

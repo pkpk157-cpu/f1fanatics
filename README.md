@@ -34,8 +34,8 @@ you and them side by side, both teams for any race (chosen from a list,
 shared picks dimmed so the differences stand out, each pick's points and
 both round scores), then the season in numbers with the better side lit.
 
-Choosing your team (top of the menu) highlights you everywhere and is saved
-on that device only. **Settings** has Dark, Light and Auto themes (dark is the default),
+Choosing your team (top of the menu) marks you everywhere with a small red
+**YOU** tag (no colour highlight) and is saved on that device only. **Settings** has Dark, Light and Auto themes (dark is the default),
 the F1 Fantasy 2026 game rules (scoring, chips, transfers, prices, in
 `rules.js`, taken from F1 Fantasy's official rules text), and the About the data page.
 
