@@ -117,19 +117,8 @@
   }
   function signedMoney(v) { return v == null || v === 0 ? "" : '<span class="' + (v > 0 ? "up" : "down") + '">' + (v > 0 ? "▲" : "▼") + "$" + fmt(Math.abs(v), 1) + "m</span>"; }
 
-  /* F1-graphic standings row: red position, team-colour bar, red points block */
-  function standRow(o) {
-    return '<div class="srow' + (o.me ? " me" : "") + (o.lead ? " lead" : "") + (o.color ? "" : " plain") + (o.medal ? " " + medal(o.medal) : "") + '"' + (o.attr || "") + (o.color ? ' style="' + tc(o.color) + '"' : "") + ">" +
-      '<div class="spos">' + esc(o.pos) + "</div>" +
-      '<div class="sbar">' + (o.face || "") + '<div class="snm"><div class="sname">' + o.name + "</div>" + (o.sub ? '<div class="ssub">' + o.sub + "</div>" : "") + "</div></div>" +
-      '<div class="spts"><span class="num">' + o.pts + "</span>" + (o.ptsSub ? "<small>" + o.ptsSub + "</small>" : "") + "</div></div>";
-  }
   // marks your own name wherever managers are listed
   function youTag() { return ' <span class="you">You</span>'; }
-  function managerName(m) {
-    var p = m.name.split(" "), last = p.length > 1 ? p.pop() : p[0], first = p.length ? p.join(" ") : "";
-    return '<span class="nmt">' + (first ? '<span class="fn">' + esc(first) + "</span> " : "") + "<b>" + esc(last) + "</b></span>" + (isMe(m) ? youTag() : "");
-  }
 
   /* team-builder / Team of the Week card */
   function assetCard(id, o) {
@@ -250,22 +239,19 @@
 
   /* ---------------- views ---------------- */
   function viewStandings() {
-    var M = S.model, h = "";
-    var lastInfo = M.roundInfo[M.N - 1];
-    h += SUB("table");
-    h += '<section class="board"><div class="board-h"><div class="board-t">League standings</div><div class="board-s">Points after the ' + esc(d0(lastInfo)) + "</div></div>";
-    M.managers.forEach(function (m) {
+    var M = S.model, n = M.managers.length;
+    // last five finishes and the places moved this round
+    var form = function (m) {
       var mv = m.move > 0 ? '<span class="up">▲' + m.move + "</span>" : m.move < 0 ? '<span class="down">▼' + -m.move + "</span>" : "";
-      h += standRow({
-        pos: m.rank, medal: m.rank, me: isMe(m), lead: m === M.leader, attr: ' data-m="' + esc(m.id) + '"',
-        name: managerName(m),
-        sub: '<span class="form mini" title="Finish in each of the last five rounds, newest on the right">' + m.formRanks.map(function (r) { return formChip(r, M.managers.length); }).join("") + "</span>" + (mv ? " " + mv : ""),
-        pts: fmt(m.total), ptsSub: m.gapLeader ? "−" + fmt(m.gapLeader) : ""
-      });
+      return '<span class="form mini">' + m.formRanks.map(function (r) { return formChip(r, n); }).join("") + "</span>" + (mv ? " " + mv : "");
+    };
+    return SUB("table") + podiumBoard({
+      title: '<span class="lime">STANDINGS</span> <span class="sl">/</span> ' + esc(String(S.data.league.season)), unit: "PTS",
+      entries: M.managers.map(function (m) {
+        var gap = m.gapLeader ? ' <span class="gap">−' + fmt(m.gapLeader) + "</span>" : "";
+        return { m: m, rank: m.rank, value: fmt(m.total), extra: form(m) + gap, sub: form(m) + gap };
+      })
     });
-    h += "</section>";
-
-    return h;
   }
   function d0(ri) { return ri ? S.data.league.season + " " + ri.name : "round " + S.model.N; }
   function figs(list) {
@@ -285,7 +271,7 @@
       return '<div class="pod p' + place + " " + medal(e.rank) + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '">' +
         '<div class="pod-img"><span class="pod-num">' + e.rank + "</span></div>" +
         '<div class="pod-name">' + (n.first ? '<span class="fn">' + esc(n.first) + "</span>" : "") + "<b>" + esc(n.last) + "</b>" + (isMe(e.m) ? youTag() : "") + '<span class="pt">' + esc(e.m.team) + "</span>" +
-        '<span class="pp"><b>' + e.value + "</b> " + esc(o.unit) + "</span></div></div>";
+        '<span class="pp"><b>' + e.value + "</b> " + esc(o.unit) + "</span>" + (e.extra ? '<span class="pex">' + e.extra + "</span>" : "") + "</div></div>";
     };
     var top = o.entries.slice(0, 3), rest = o.entries.slice(3);
     var h = '<section class="result"><div class="result-h">' + (o.prev != null ? '<button class="rnav" data-round-nav="' + o.prev + '"' + (o.prevOff ? " disabled" : "") + ' aria-label="Previous round">‹</button>' : "") +

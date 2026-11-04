@@ -8,7 +8,7 @@
    checked on every push: it changes when, and only when, the app does — not
    when the data updater publishes a new data.json. data.json is never cached
    here; app.js keeps its own last copy for offline. */
-const BUILD = "4c9af88819e8";
+const BUILD = "347455ee6b40";
 const CACHE = "f1f-" + BUILD;
 // Driver photos, kept across releases: they don't change with one.
 const PHOTOS = "f1fphotos";

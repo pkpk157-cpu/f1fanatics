@@ -6,8 +6,8 @@ stats around them:
 
 Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
 
-- **League**: Standings (each row shows that manager's form over the last five
-  races) · XP (the XP podium, the pool, then for everyone: race wins, the race
+- **League**: Standings (a podium for the top three, then everyone else; each
+  shows their form over the last five races and the gap to the leader) · XP (the XP podium, the pool, then for everyone: race wins, the race
   XP they made, and the season XP their place is on track for, or how many
   points off 3rd they are)
 - **Races**: Races (every race of the season: its number with the date (and
@@ -43,10 +43,8 @@ the F1 Fantasy 2026 game rules (scoring, chips, transfers, prices, in
 
 ### The look
 
-Standings and round winners are drawn like F1's broadcast standings graphic:
-red position numbers, a bar in team colours, and the points in a red block
-(gold for the leader). Round results are a podium (2–1–3) plus the rest of
-the field, like F1's race-result graphic. Pictures are used for drivers and
+Standings, XP and round results are drawn like F1's race-result graphic: a
+podium (2–1–3) with big numerals, then the rest of the field. Pictures are used for drivers and
 constructors only, never for managers. **1st is always gold, 2nd silver,
 3rd bronze**: standings, podiums, form chips, race-grid outlines, ranked
 lists and tables (`--p1`/`--p2`/`--p3` in `styles.css`). XP is only ever

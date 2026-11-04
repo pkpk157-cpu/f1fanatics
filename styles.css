@@ -437,49 +437,35 @@ tr.click:active td { background: var(--glass-2); }
   --gold-num: linear-gradient(180deg, #e2b84a, #a87b18);
 } }
 
-.brand-name, .board-t, .row .big, .card h2, .sheet h1 { font-family: var(--display); }
+.brand-name, .row .big, .card h2, .sheet h1 { font-family: var(--display); }
 
 
 
 /* the standings board — always dark, like the broadcast graphic */
-.board {
-  background: var(--board); color: var(--board-fg); border-radius: var(--radius); overflow: hidden; margin-bottom: 14px;
-  border: 1px solid var(--glass-line); box-shadow: var(--drop);
-}
-.board-h { position: relative; text-align: center; padding: 18px 16px 12px; background:
-  linear-gradient(90deg, var(--red) 0 22%, transparent 22% 78%, var(--red) 78%) top / 100% 5px no-repeat,
-  linear-gradient(90deg, var(--red) 0 14%, transparent 14% 86%, var(--red) 86%) 0 10px / 100% 3px no-repeat; }
-.board-t { font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 26px; line-height: 1; letter-spacing: -0.01em; }
-.board-s { font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--board-muted); margin-top: 6px; }
 
-.srow { display: grid; grid-template-columns: 46px minmax(0, 1fr) 88px; height: 62px; border-top: 2px solid var(--red); cursor: pointer; }
-.srow:active { filter: brightness(1.15); }
-.spos {
-  display: grid; place-items: center; font-family: var(--display); font-weight: 600; font-size: 26px; line-height: 1;
-  color: transparent; -webkit-text-stroke: 1.3px var(--red-hi);
-}
-.sbar {
-  position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; color: var(--ink);
-  background: linear-gradient(100deg, var(--tc) 0%, var(--tc) 55%, color-mix(in srgb, var(--tc) 60%, #000) 100%);
-}
-.srow.plain .sbar { background: var(--bar); color: var(--bar-fg); padding-left: 14px; }
-.srow.plain:nth-child(odd) .sbar { background: var(--bar-alt); }
-.srow.plain { height: 58px; }
-.sbar .noimg { width: 56px; height: 56px; flex: none; align-self: flex-end; object-fit: cover; object-position: top; margin-left: 6px; }
-.sbar .noimg { display: grid; place-items: center; font-family: var(--display); font-weight: 600; font-style: italic; font-size: 16px; opacity: .55; align-self: center; height: 40px; }
-.snm { min-width: 0; padding-right: 8px; }
-.sname { font-family: var(--display); text-transform: uppercase; font-style: italic; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sname .fn { font-weight: 600; font-size: 12.5px; opacity: .9; margin-right: 3px; }
-.sname b { font-weight: 600; font-size: 19px; letter-spacing: -0.01em; }
-.ssub { font-size: 11.5px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-.ssub .up, .ssub .down { font-weight: 600; color: inherit; }
-.spts {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--red); color: #fff;
-  font-family: var(--display); font-weight: 600; font-style: italic; font-size: 24px; line-height: 1;
-}
-.spts small { font-family: var(--font); font-style: normal; font-weight: 600; font-size: 10.5px; opacity: .8; margin-top: 3px; }
-.srow.lead .spts .num { background: var(--gold-num); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
-@media (max-width: 380px) { .srow { grid-template-columns: 38px minmax(0, 1fr) 76px; } .sname b { font-size: 17px; } .spts { font-size: 21px; } }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* team-builder / Team of the Week cards */
 .pitch { display: grid; gap: 12px; }
@@ -634,11 +620,11 @@ main { padding-top: 8px; }
 .tm1 { color: var(--p1); font-weight: 600; }
 .tm2 { color: var(--p2); font-weight: 600; }
 .tm3 { color: var(--p3); font-weight: 600; }
-.srow.m1 .spos, .srow.m2 .spos, .srow.m3 .spos { -webkit-text-stroke: 0; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 600; }
-.srow.m1 .spos { background-image: var(--p1-grad); }
-.srow.m2 .spos { background-image: var(--p2-grad); }
-.srow.m3 .spos { background-image: var(--p3-grad); }
-.srow.lead .spts .num { background-image: var(--p1-grad); }
+
+
+
+
+
 .pod .pod-num { -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; }
 .pod.m1 .pod-num { background-image: var(--p1-grad); }
 .pod.m2 .pod-num { background-image: var(--p2-grad); }
@@ -696,10 +682,10 @@ main { padding-top: 8px; }
 /* last-5 form on the standings rows */
 .form.mini { gap: 2px; vertical-align: -3px; }
 .form.mini span { width: 16px; height: 16px; border-radius: 4px; font-size: 9.5px; box-shadow: none; }
-.srow .ssub { display: flex; align-items: center; gap: 6px; overflow: visible; }
-.sname b { padding-right: 4px; }
-.srow.plain .ssub .up { color: var(--up); }
-.srow.plain .ssub .down { color: var(--down); }
+
+
+
+
 
 /* ---------- burger menu (side drawer) ---------- */
 .drawer {
@@ -743,7 +729,7 @@ main { padding-top: 8px; }
 /* Tabs carry no explanatory text: no card descriptions, legends or footnotes.
    (Sheets opened from a tab keep theirs.) */
 main .card h2 { margin-bottom: 12px; }
-main .board-h { padding-bottom: 14px; }
+
 
 /* ---------- quieter, simpler ---------- */
 .figs {
@@ -913,6 +899,15 @@ b, strong { font-weight: 600; }
 /* a name that may be cut short, with the YOU tag kept whole beside it */
 .nmw { display: flex; align-items: center; min-width: 0; }
 .rname b.nmw, .row .main .n.nmw { overflow: visible; }
-.sname { display: flex; align-items: center; }
+
 .nmt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nmw .you, .sname .you { flex: none; }
+.nmw .you{ flex: none; }
+
+/* standings podium: form under each name; the gap to the leader in the rows */
+.pod-name .pex { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; margin-top: 6px; font-size: 11px; font-style: normal; }
+.pod-name .pex .up { color: var(--up); } .pod-name .pex .down { color: var(--down); }
+.pod.p1 .pod-name .pex .up, .pod.p1 .pod-name .pex .down { color: #fff; }
+.rname small .form.mini { vertical-align: -4px; margin-right: 2px; }
+.rname small .up { color: var(--up); font-weight: 600; } .rname small .down { color: var(--down); font-weight: 600; }
+.rname small .gap { margin-left: 4px; }
+.pod-name .pex .gap { opacity: .75; }
