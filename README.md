@@ -9,9 +9,10 @@ Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
 - **League**: one board with a **Points / XP** switch on it (no sub-tabs; the
   choice is remembered). Points: the standings podium and everyone else, with
   form over the last five races, places moved and the gap to the leader. XP:
-  the same board in XP order, each line showing race wins and race XP, and the
-  season XP their place is on track for (or how many points off 3rd they
-  are), with the pool, race XP, races left and season XP below
+  the same board in XP order showing total XP only, then a table of each
+  manager's race wins (shared noted), race XP, the season XP their place is on
+  track for (or how far off 3rd they are) and total, then the pool, race XP,
+  races left and season XP
 - **Races**: Races (every race of the season: its number with the date (and
   sprint) beneath, and under the name the round's top three as F1-style codes,
   e.g. 1 VOH 2 PUR 3 KAP; tap a finished one for

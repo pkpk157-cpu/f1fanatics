@@ -918,3 +918,19 @@ b, strong { font-weight: 600; }
 /* XP view: wins and season XP under each podium name */
 .pod-name .pex .xl { flex-basis: 100%; text-align: center; text-transform: none; font-family: var(--font); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10.5px; opacity: .85; }
 .pod-name .pex .xl:empty { display: none; }
+
+/* XP breakdown table (XP view, under the board) */
+.xpt { width: 100%; }
+.xpt th, .xpt td { padding-left: 4px; padding-right: 4px; }
+.xpt td { vertical-align: middle; white-space: nowrap; }
+.xpt td small { display: block; color: var(--muted); font-size: 10.5px; font-weight: 400; }
+.xpt td.l { max-width: 30vw; }
+.xpt td.tot { font-family: var(--display); font-weight: 700; font-size: 15px; }
+.xpt .you { padding: 2px 4px 1px; margin-left: 4px; }
+@media (max-width: 359px) {
+  .xpt th, .xpt td { padding-left: 2px; padding-right: 2px; font-size: 12.5px; }
+  .xpt th { font-size: 10px; letter-spacing: .04em; }
+  .xpt td.tot { font-size: 13.5px; }
+  .xpt td small { font-size: 9.5px; }
+  .xpt td.l { max-width: 29vw; }
+}
