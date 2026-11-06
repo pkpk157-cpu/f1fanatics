@@ -24,10 +24,17 @@ Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
   bottom; zoom in on both axes (pinch, trackpad pinch, or + / −) and scroll.
   The names below pick which lines are highlighted, each in its own colour
   (the leader and you to start with); **All** highlights everyone
-- **Picks**: Drivers · Constructors · Trusted (most picked across the season)
+- **GP** (its label is the weekend's three letters, e.g. MEX): the last race
+  weekend until the next one locks, then the next. Your team for that weekend
+  with its points, your total (live while a session runs, provisional once it
+  ends, final once F1 scores the round, with your place in the round), and
+  every session: practice (and sprint qualifying) with where your drivers
+  finished; qualifying, sprint and race with each pick's points and finishing
+  position, marked Live, Provisional or Final
 
 The **menu** (≡, top right) has your team (with **Change**), the **Stats**
-sections (Records · Weekends · Honours · Movement · Value), **Rules** (league XP
+sections (Records · Weekends · Honours · Movement · Value), **Picks**
+(Drivers · Constructors · Trusted, most picked across the season), **Rules** (league XP
 and F1 Fantasy's scoring) and **Settings** (appearance, about the data).
 
 Each piece of information lives in one place.
@@ -39,8 +46,9 @@ both round scores), **Form** (points each race as paired bars and league
 position as two lines, scrolling sideways from the latest race), then the
 season in numbers with the better side lit.
 
-Choosing your team (top of the menu) marks you everywhere with a small red
-**YOU** tag (no colour highlight) and is saved on that device only. **Settings** has Dark, Light and Auto themes (dark is the default),
+Managers are shown with their initials in a circle, in a colour of their own,
+wherever they're listed. Choosing your team (top of the menu) marks you
+everywhere with a small red **YOU** tag and a red ring on your circle and is saved on that device only. **Settings** has Dark, Light and Auto themes (dark is the default),
 the F1 Fantasy 2026 game rules (scoring, chips, transfers, prices, in
 `rules.js`, taken from F1 Fantasy's official rules text), and the About the data page.
 
@@ -95,7 +103,9 @@ F1 Fantasy's public feeds. No login and no API key:
 | `feeds/leaderboard/privateleague/list_1_{league}_0_1.json` | standings, each manager's current seven picks |
 | `feeds/leaderboard/privateleague/list_2_{league}_{round}_1.json` | **one round's** points per manager, plus the team used in it; `403` until the round is scored |
 | `feeds/drivers/{round}_en.json` | every driver and constructor: price for that round, points scored in it, whole-game selection % |
-| `feeds/schedule/raceday_en.json` | the calendar (names, sprint weekends, lock times) |
+| `feeds/schedule/raceday_en.json` | the calendar (names, sprint weekends, lock times, each scored session's times and live state) |
+| `feeds/popup/playerstats_{id}.json` | each driver's and constructor's points and finishing position per scored session (qualifying, sprint, race), read around race weekends only |
+| OpenF1 `api.openf1.org` | every session of the weekend and, after each practice / sprint qualifying, where each driver finished (F1 Fantasy doesn't score practice) |
 
 **list_2 is per-race, not a running total.** This was checked against the
 league on 3 November 2026: after round 19, the 19 list_2 scores added up
@@ -125,7 +135,8 @@ seven picks at that round's prices, so a one-round spike is the Limitless chip.
 
 ## The clock: what keeps it fresh
 
-`heartbeat.yml` pokes **Update F1 data** every ten minutes for most of an
+`heartbeat.yml` pokes **Update F1 data** every ten minutes (every three while
+a qualifying, sprint or race is on, `scripts/session-live.js`) for most of an
 hour, then hands over to a fresh copy of itself. GitHub's own `schedule:` on
 both workflows is only a backstop, because GitHub drops and delays scheduled
 runs, sometimes for hours. The heartbeat also cancels any update stuck for

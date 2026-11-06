@@ -4,7 +4,7 @@
   "use strict";
   var CONFIG = window.F1F_CONFIG;
   var F1F = window.F1F;
-  var TABS = ["league", "races", "you", "trends", "picks", "stats"];
+  var TABS = ["league", "races", "you", "trends", "gp", "picks", "stats"];
   var OLD_TABS = { standings: "league" };
   // each tab is split into sub-tabs; only the chosen one is drawn
   var SUBS = {
@@ -13,8 +13,11 @@
     you: [["season", "Season"], ["team", "Team"], ["picks", "Picks"], ["rivals", "Rivals"]],
     trends: [["rank", "Position"], ["total", "Points"], ["gap", "Gap"]],
     stats: [["records", "Records"], ["weekends", "Weekends"], ["honours", "Honours"], ["moves", "Movement"], ["value", "Value"]],
-    picks: [["drivers", "Drivers"], ["constructors", "Constructors"], ["trusted", "Trusted"]]
+    picks: [["drivers", "Drivers"], ["constructors", "Constructors"], ["trusted", "Trusted"]],
+    gp: [["weekend", "Weekend"]]
   };
+  // tabs reached from the menu (or a single page): no pill row of sub-tabs
+  var NO_SUBTABS = { league: 1, stats: 1, picks: 1, gp: 1 };
   var MARK = "\u0001";
   function SUB(key) { return MARK + key + MARK; }
   // keep what comes before the first marker (shared by every sub-tab) and the chosen part
@@ -119,6 +122,12 @@
 
   // marks your own name wherever managers are listed
   function youTag() { return ' <span class="you">You</span>'; }
+  // a manager's initials in a circle, in a colour of their own (the same everywhere); yours has a red ring
+  function avatar(m, cls) {
+    var p = String(m.name || "?").trim().split(/\s+/), ini = (p[0] || "?").charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : "");
+    var h = 0, id = String(m.id); for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
+    return '<span class="av' + (cls ? " " + cls : "") + (isMe(m) ? " me" : "") + '" style="--avh:' + h + '" aria-hidden="true">' + esc(ini.toUpperCase()) + "</span>";
+  }
 
   /* team-builder / Team of the Week card */
   function assetCard(id, o) {
@@ -166,8 +175,8 @@
     return '<span style="background:' + col + '" title="' + ordinal(rank) + ' in the round">' + rank + "</span>";
   }
   function whoCell(m) {
-    return '<td class="l who"><div class="n">' + esc(m.name) +
-      '</div><div class="t">' + (isMe(m) ? '<span class="you">You</span>' : "") + esc(m.team) + "</div></td>";
+    return '<td class="l who"><div class="whw">' + avatar(m, "sm") + '<div class="whn"><div class="n">' + esc(m.name) +
+      '</div><div class="t">' + (isMe(m) ? '<span class="you">You</span>' : "") + esc(m.team) + "</div></div></div></td>";
   }
 
   /* ---------------- data ---------------- */
@@ -218,6 +227,8 @@
   /* ---------------- header & banner ---------------- */
   function renderChrome() {
     var M = S.model, d = S.data;
+    var gl = document.querySelector("#tabs .gp-l"), gw = gpRound();
+    if (gl && gw) { var gs = (d.schedule || []).find(function (x) { return x.round === gw; }); gl.textContent = gs ? abbr(gs.short || gs.name) : "GP"; }
     $("leagueName").textContent = (d.league && d.league.name) || CONFIG.leagueName;
     $("subline").textContent = d.league.season + " · Round " + M.N + " of " + (M.N + M.remaining) +
       " · updated " + ago(d.generatedAt);
@@ -279,8 +290,8 @@
       (o.next != null ? '<button class="rnav" data-round-nav="' + o.next + '"' + (o.nextOff ? " disabled" : "") + ' aria-label="Next round">›</button>' : "") + "</div>";
     h += '<div class="podium">' + card(top[1], 2) + card(top[0], 1) + card(top[2], 3) + "</div>";
     if (rest.length) h += '<div class="rlist">' + rest.map(function (e) {
-      return '<div class="rrow' + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '"><div class="rpos">' + e.rank + '</div><div class="rname"><b class="nmw"><span class="nmt">' + esc(e.m.name) + "</span>" + (isMe(e.m) ? youTag() : "") +
-        "</b><small>" + e.sub + '</small></div><div class="rpts"><b>' + e.value + "</b>" + esc(o.unit) + "</div></div>";
+      return '<div class="rrow' + (isMe(e.m) ? " me" : "") + '" data-m="' + esc(e.m.id) + '"><div class="rpos">' + e.rank + '</div><div class="rname rav">' + avatar(e.m) + '<div class="rnt"><b class="nmw"><span class="nmt">' + esc(e.m.name) + "</span>" + (isMe(e.m) ? youTag() : "") +
+        "</b><small>" + e.sub + "</small></div></div>" + '<div class="rpts"><b>' + e.value + "</b>" + esc(o.unit) + "</div></div>";
     }).join("") + "</div>";
     return h + "</section>";
   }
@@ -327,7 +338,7 @@
       var track = m.rank <= places
         ? cur(x.projected, true) + "<small>" + ordM(m.rank) + "</small>"
         : '<span class="muted">–</span>' + (cutPts != null ? "<small>" + fmt(cutPts - m.total) + " off " + ordinal(places) + "</small>" : "");
-      h += '<tr class="click" data-m="' + esc(m.id) + '"><td class="l"><span class="nmw"><span class="nmt">' + esc(firstName(m)) + "</span>" + (isMe(m) ? youTag() : "") + "</span></td>" +
+      h += '<tr class="click" data-m="' + esc(m.id) + '"><td class="l"><span class="nmw">' + avatar(m, "xs") + '<span class="nmt">' + esc(firstName(m)) + "</span></span></td>" +
         "<td>" + (n ? n + (sh ? "<small>" + sh + " shared</small>" : "") : '<span class="muted">0</span>') + "</td>" +
         "<td>" + (x.race ? cur(x.race, true) : '<span class="muted">0</span>') + "</td>" +
         "<td>" + track + '</td><td class="tot">' + cur(x.total, true) + "</td></tr>";
@@ -406,7 +417,7 @@
     M.roundInfo.forEach(function (ri) { h += '<th class="rd click" data-r="' + ri.round + '" title="' + esc(ri.name) + '">' + esc(abbr(ri.short)) + "<br>" + ri.round + "</th>"; });
     h += '<th>Total</th></tr></thead><tbody>';
     M.managers.forEach(function (m) {
-      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><b>' + esc(firstName(m)) + "</b>" + (isMe(m) ? youTag() : "") + "</td>";
+      h += '<tr class="click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><td class="l"><span class="nmw">' + avatar(m, "xs") + '<b class="nmt">' + esc(firstName(m)) + "</b>" + (isMe(m) ? youTag() : "") + "</span></td>";
       M.roundInfo.forEach(function (ri) {
         var p = m.pts[ri.round], rr = m.roundRank[ri.round];
         if (p == null) { h += '<td class="cell none">·</td>'; return; }
@@ -653,6 +664,111 @@
   function niceMin(v) { if (v >= 0) { var s = niceStep(v || 1, 4); return Math.max(0, Math.floor(v / s) * s); } var s2 = niceStep(-v, 2); return Math.floor(v / s2) * s2; }
   function niceTicks(lo, hi, n) { var s = niceStep(hi - lo, n), out = []; for (var v = Math.ceil(lo / s) * s; v <= hi + 1e-9; v += s) out.push(Math.round(v * 100) / 100); return out; }
 
+  /* ---------------- GP: the race weekend, session by session ---------------- */
+  // the last weekend raced, until the next one locks; then the next one
+  function gpRound() {
+    var M = S.model, sched = S.data.schedule || [];
+    var next = sched.find(function (s) { return s.round === M.N + 1; });
+    if (next && next.lock && Date.now() >= Date.parse(next.lock)) return next.round;
+    return M.N || (sched[0] ? sched[0].round : null);
+  }
+  var GP_CODE = { "Qualifying": "Q", "Race": "R", "Sprint Qualifying": "S" };
+  var GP_NAME = { FP1: "Practice 1", FP2: "Practice 2", FP3: "Practice 3", SQ: "Sprint Qualifying", S: "Sprint", Q: "Qualifying", R: "Race" };
+  function gpWeekend() {
+    var W = gpRound(); if (!W) return null;
+    var s = (S.data.schedule || []).find(function (x) { return x.round === W; }) || { round: W, name: "Round " + W };
+    var wk = S.data.weekend && S.data.weekend.round === W ? S.data.weekend : null;
+    var sessions = wk && wk.sessions && wk.sessions.length ? wk.sessions : (s.sessions || []).filter(function (x) { return GP_CODE[x.type]; }).map(function (x) {
+      return { code: GP_CODE[x.type], name: GP_NAME[GP_CODE[x.type]], start: x.start, end: x.end, live: x.live, scored: true, pos: {} };
+    });
+    return { W: W, s: s, wk: wk, sessions: sessions, pts: (wk && wk.pts) || {}, final: W <= S.model.N };
+  }
+  // upcoming / live / done, from F1 Fantasy's live flag where it has one, else the clock
+  function gpState(x) {
+    var now = Date.now(), a = Date.parse(x.start), b = Date.parse(x.end);
+    if (x.live === 1) return "live";
+    if (x.live === 2) return "done";
+    if (isFinite(a) && now < a) return "upcoming";
+    if (isFinite(b) && now <= b + 10 * 60000) return "live";
+    return "done";
+  }
+  function gpLive() {
+    var g = S.model && S.data && gpWeekend();
+    return !!g && g.sessions.some(function (x) { return gpState(x) === "live"; });
+  }
+  function gpPill(state, g, x) {
+    if (state === "live") return '<span class="gpp live"><i></i>Live</span>';
+    if (state === "upcoming") return '<span class="gpp up">' + esc(when(x.start, { weekday: "short", hour: "2-digit", minute: "2-digit" })) + "</span>";
+    if (!x.scored) return '<span class="gpp done">Done</span>';
+    return g.final ? '<span class="gpp final">Final</span>' : '<span class="gpp prov">Provisional</span>';
+  }
+  function viewGP() {
+    var M = S.model, g = gpWeekend();
+    if (!g) return SUB("weekend") + '<div class="empty">No race weekend yet.</div>';
+    var me = S.me && byId(S.me);
+    var states = g.sessions.map(gpState);
+    var live = states.indexOf("live") >= 0, started = states.some(function (x) { return x !== "upcoming"; });
+    var scoredDone = g.sessions.filter(function (x, i) { return x.scored && states[i] !== "upcoming"; });
+    var head = '<section class="result gp-h"><div class="result-h"><div class="result-t"><span class="lime">R' + g.W + '</span> <span class="sl">/</span> ' + esc(String(g.s.short || g.s.name).toUpperCase()) +
+      "</div></div><div class=\"gp-sub\">" + (live ? '<span class="gpp live"><i></i>Live</span>' : g.final ? '<span class="gpp final">Final</span>' : started ? '<span class="gpp prov">Provisional</span>' : '<span class="gpp up">Upcoming</span>') +
+      (g.s.sprint ? '<span class="gpp up">Sprint weekend</span>' : "") + "</div></section>";
+    if (!me) return SUB("weekend") + head + '<section class="card youpick"><h2>Which team is yours?</h2>' + teamSelect() + "</section>";
+
+    var team = (g.W <= M.N && me.team_[g.W] && me.team_[g.W].length ? me.team_[g.W] : me.picks).slice();
+    var isD = function (id) { return (assetOf(id) || {}).type === "D"; };
+    var wkPts = function (id) {
+      var x = g.pts[id]; if (!x) return null;
+      var t = 0, any = false;
+      Object.keys(x).forEach(function (c) { t += x[c].p || 0; any = true; });
+      return any ? t : null;
+    };
+    var anyPts = team.some(function (id) { return wkPts(id) != null; });
+    var prov = team.reduce(function (t, id) { return t + (wkPts(id) || 0); }, 0);
+    var official = g.final ? me.pts[g.W] : null;
+    var total = official != null ? official : anyPts ? prov : null;
+    var totalLabel = official != null ? "Final" : live ? "Live" : anyPts ? "Provisional" : "Points";
+    var rr = g.final ? me.roundRank[g.W] : null;
+
+    var h = SUB("weekend") + head;
+    h += '<section class="card"><div class="totw-h"><div><div class="k">' + totalLabel + '</div><div class="v gp-total">' + (total == null ? "–" : fmt(total)) + "</div></div>" +
+      '<div class="ttl"><b>Your team</b><span>' + esc(g.s.name) + "</span></div>" +
+      '<div class="r"><div class="k">' + (rr ? "In the round" : "Sessions") + '</div><div class="v">' + (rr ? ordM(rr) : scoredDone.length + "/" + g.sessions.filter(function (x) { return x.scored; }).length) + "</div></div></div>" +
+      teamGrid(team.filter(isD).map(function (id) { return { id: id }; }), team.filter(function (id) { return !isD(id); }).map(function (id) { return { id: id }; }),
+        function (x) { var p = wkPts(x.id); return p == null ? {} : { pts: p }; }) + "</section>";
+
+    // every session, in order
+    g.sessions.forEach(function (x, i) {
+      var st = states[i];
+      h += '<section class="card gp-s' + (st === "live" ? " is-live" : "") + '"><div class="gp-sh"><b>' + esc(x.name || GP_NAME[x.code] || x.code) + "</b>" + gpPill(st, g, x) + "</div>";
+      if (st === "upcoming") { h += "</section>"; return; }
+      if (!x.scored) {
+        // practice / sprint qualifying: where your drivers finished
+        var pos = x.pos || {}, drv = team.filter(isD);
+        var have = drv.filter(function (id) { return pos[id]; }).sort(function (a, b) { return pos[a] - pos[b]; });
+        h += have.length ? '<div class="gp-pos">' + have.map(function (id) {
+          var a = assetOf(id);
+          return '<span class="gpd" style="' + tc(teamColor(a.team)) + '"><b class="t' + medal(pos[id]) + '">P' + pos[id] + "</b>" + esc(a.short || splitName(a).last) + "</span>";
+        }).join("") + (have.length < drv.length ? drv.filter(function (id) { return !pos[id]; }).map(function (id) { return '<span class="gpd out">' + esc(assetOf(id).short || "") + " –</span>"; }).join("") : "") + "</div>"
+          : '<div class="gp-wait">' + (st === "live" ? "On track now" : "Results shortly after the session") + "</div>";
+        h += "</section>";
+        return;
+      }
+      // qualifying / sprint / race: each pick's points (and where a driver finished)
+      var rows = team.map(function (id) { var v = (g.pts[id] || {})[x.code]; return { id: id, v: v }; });
+      var got = rows.some(function (r) { return r.v; });
+      if (!got) { h += '<div class="gp-wait">' + (st === "live" ? "Points appear as F1 scores the session" : "Waiting for F1's points") + "</div></section>"; return; }
+      rows.sort(function (a, b) { return ((b.v && b.v.p) || 0) - ((a.v && a.v.p) || 0); });
+      var sum = rows.reduce(function (t, r) { return t + ((r.v && r.v.p) || 0); }, 0);
+      h += '<div class="gp-rows">' + rows.map(function (r) {
+        var a = assetOf(r.id) || { name: "?", team: "" }, n = splitName(a);
+        var where = r.v && r.v.nc ? "NC" : r.v && r.v.pos ? "P" + r.v.pos : "";
+        return '<div class="gpr" style="' + tc(teamColor(a.team)) + '"><span class="ctile">' + (a.type === "C" ? pic(r.id, "logo", "clogo") : pic(r.id, "head", "chead")) + '</span><span class="cnm">' + esc(n.last) +
+          '</span><span class="gpw' + (r.v && r.v.pos ? " t" + medal(r.v.pos) : "") + '">' + where + '</span><b class="' + (r.v && r.v.p < 0 ? "down" : "") + '">' + (r.v ? fmt(r.v.p) : "–") + "</b></div>";
+      }).join("") + '</div><div class="gp-sum"><span>' + esc(x.name || GP_NAME[x.code]) + '</span><b>' + fmt(sum) + " pts</b></div></section>";
+    });
+    return h;
+  }
+
   function viewStats() {
     var M = S.model, h = "";
     var n = M.managers.length;
@@ -718,7 +834,7 @@
   }
   function roundLabel(r) { var i = S.model.roundInfo[r - 1]; return "R" + r + " " + (i ? i.short : ""); }
   function recRow(rk, m, sub, big) {
-    return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + rk + '</div><div class="main"><div class="n nmw"><span class="nmt">' + esc(m.name) + "</span>" + (isMe(m) ? youTag() : "") +
+    return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + rk + "</div>" + avatar(m) + '<div class="main"><div class="n nmw"><span class="nmt">' + esc(m.name) + "</span>" + (isMe(m) ? youTag() : "") +
       '</div><div class="t">' + esc(sub) + '</div></div><div class="big">' + big + "</div></div>";
   }
 
@@ -812,7 +928,7 @@
       var trend = d == null ? "" : d === 0 ? "no change" + since :
         lbl === "Ahead" ? (d < 0 ? "you've closed " + fmt(-d) + since : "they've pulled away by " + fmt(d) + since)
                         : (d < 0 ? "they've closed " + fmt(-d) + " on you" + since : "you've pulled away by " + fmt(d) + since);
-      return '<div class="row click" data-m="' + esc(x.id) + '"><div class="rk"><span class="' + "t" + medal(x.rank) + '">' + x.rank + '</span></div><div class="main"><div class="n">' + lbl + ": " + esc(x.name) +
+      return '<div class="row click" data-m="' + esc(x.id) + '"><div class="rk"><span class="' + "t" + medal(x.rank) + '">' + x.rank + "</span></div>" + avatar(x) + '<div class="main"><div class="n">' + lbl + ": " + esc(x.name) +
         '</div><div class="t">' + esc(trend) + '</div></div><div class="big ' + (now > 0 ? "down" : "up") + '">' + (now > 0 ? "−" : "+") + fmt(Math.abs(now)) + "</div></div>";
     };
     var h2h = M.managers.filter(function (x) { return x !== m; }).map(function (x) {
@@ -1009,7 +1125,7 @@
       '<div class="ahero-t">' + (nm.first ? '<span class="fn">' + esc(nm.first) + "</span>" : "") + "<b>" + esc(nm.last) + "</b><small>" + (a.type === "C" ? "Constructor" : esc(a.team)) + " · " + money(o.price) + " " + signedMoney(priceMove(id)) + "</small></div></div>";
     h += figs([{ k: "Season pts", v: fmt(o.seasonPts) }, { k: roundName(M.N), v: fmt(o.lastPts) }, { k: "League", v: o.count + "/" + M.managers.length }, { k: "All teams", v: o.global != null ? o.global + "%" : "–" }]);
     h += '<section class="card"><h2>Owned by</h2><div class="rows">' + (o.owners.length ? o.owners.map(function (m) {
-      return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + m.rank + '</div><div class="main"><div class="n nmw"><span class="nmt">' + esc(m.name) + "</span>" + (isMe(m) ? youTag() : "") + '</div><div class="t">' + esc(m.team) + "</div></div></div>";
+      return '<div class="row click' + (isMe(m) ? " me" : "") + '" data-m="' + esc(m.id) + '"><div class="rk">' + m.rank + "</div>" + avatar(m) + '<div class="main"><div class="n nmw"><span class="nmt">' + esc(m.name) + "</span>" + (isMe(m) ? youTag() : "") + '</div><div class="t">' + esc(m.team) + "</div></div></div>";
     }).join("") : '<div class="empty">Nobody in the league.</div>') + "</div></section>";
     openSheet(h);
   }
@@ -1021,6 +1137,9 @@
     honours: '<circle cx="12" cy="14" r="6" /><path d="M8.5 3h7l-2 5.2M8.5 3l2 5.2M12 11.5v5" />',
     moves: '<path d="M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4" />',
     value: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1.5" />',
+    drivers: '<circle cx="12" cy="8" r="4.5" /><path d="M5 21c1-4.5 3.8-7 7-7s6 2.5 7 7M7.5 8h9" />',
+    constructors: '<path d="M3 15h18l-2-5h-4l-1.5-3h-3L9 10H5zM6.5 18.5a1.8 1.8 0 1 0 0-.1M17.5 18.5a1.8 1.8 0 1 0 0-.1" />',
+    trusted: '<path d="M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.9z" />',
     rules: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h11" />',
     settings: '<circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.14.6.66 1 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" />'
   };
@@ -1042,10 +1161,12 @@
     }
     h += '</div><div class="dr-select"' + (me ? " hidden" : "") + ">" + teamSelect() + "</div>";
     h += '<nav class="dr-list">';
-    var cur = S.tab === "stats" ? S.sub.stats : null;
-    h += '<div class="dr-h">Stats</div>' + SUBS.stats.map(function (x) {
-      return drItem({ icon: x[0], title: x[1], href: "#stats/" + x[0], on: x[0] === cur });
-    }).join("");
+    [["stats", "Stats"], ["picks", "Picks"]].forEach(function (g) {
+      var cur = S.tab === g[0] ? S.sub[g[0]] : null;
+      h += '<div class="dr-h">' + g[1] + "</div>" + SUBS[g[0]].map(function (x) {
+        return drItem({ icon: x[0], title: x[1], href: "#" + g[0] + "/" + x[0], on: x[0] === cur });
+      }).join("");
+    });
     h += '<div class="dr-sep"></div>' +
       drItem({ icon: "rules", title: "Rules", attr: ' data-open="rules"' }) +
       drItem({ icon: "settings", title: "Settings", attr: ' data-open="settings"' });
@@ -1150,10 +1271,10 @@
     if (!S.model) return;
     renderChrome();
     var v = $("view");
-    var fn = { league: function () { return viewStandings() + viewPrizes(); }, races: viewRaces, you: viewYou, trends: viewTrends, stats: viewStats, picks: viewPicks }[S.tab];
+    var fn = { league: function () { return viewStandings() + viewPrizes(); }, races: viewRaces, you: viewYou, trends: viewTrends, gp: viewGP, stats: viewStats, picks: viewPicks }[S.tab];
     var cur = S.sub[S.tab] || SUBS[S.tab][0][0];
     // Stats is reached from the menu, which lists every section, so no pill row there
-    $("subtabs").innerHTML = S.tab === "stats" || S.tab === "league" ? "" : SUBS[S.tab].map(function (x) {
+    $("subtabs").innerHTML = NO_SUBTABS[S.tab] ? "" : SUBS[S.tab].map(function (x) {
       return '<a href="#' + S.tab + "/" + x[0] + '" class="' + (x[0] === cur ? "on" : "") + '"' + (x[0] === cur ? ' aria-current="page"' : "") + ">" + esc(x[1]) + "</a>";
     }).join("");
     var on = $("subtabs").querySelector(".on");
@@ -1269,8 +1390,11 @@
   var rt;
   window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(function () { if (S.tab === "trends") hydrateCharts($("view")); }, 150); });
   document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(false); });
-  setInterval(function () { if (!document.hidden) refresh(true); }, REFRESH_MS);
-  setInterval(function () { if (S.model && !document.hidden) renderChrome(); }, 60 * 1000);
+  setInterval(function () {
+    if (!S.model || document.hidden) return;
+    if (gpLive() || Date.now() - S.fetchedAt >= REFRESH_MS) refresh(true);
+    if (S.tab === "gp") render(); else renderChrome();
+  }, 60 * 1000);
 
   // which pictures the photos workflow has mirrored; none yet = initials
   var photosReady = fetch("photos/index.json", { cache: "no-cache" }).then(function (r) { return r.ok ? r.json() : {}; })

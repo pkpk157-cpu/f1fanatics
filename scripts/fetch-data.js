@@ -23,6 +23,7 @@ const fs = require("fs");
 const path = require("path");
 const CONFIG = require("../config.js");
 const F1F = require("../compute.js");
+const { buildWeekend } = require("./weekend.js");
 
 const argv = process.argv.slice(2);
 const arg = (name, dflt) => { const i = argv.indexOf("--" + name); return i >= 0 ? argv[i + 1] : dflt; };
@@ -75,7 +76,7 @@ function parseSchedule(j) {
     const r = Number(x.GamedayId);
     if (!r) continue;
     const s = by.get(r) || { round: r, name: x.MeetingName, location: x.MeetingLocation, country: x.CountryName, sessions: [] };
-    s.sessions.push({ type: x.SessionType, start: x.SessionStartDateISO8601 });
+    s.sessions.push({ type: x.SessionType, start: x.SessionStartDateISO8601, end: x.SessionEndDateISO8601, key: Number(x.FOMMEETINGSESSIONKEY) || null, live: Number(x.IsLive) || 0 });
     by.set(r, s);
   }
   return [...by.values()].sort((a, b) => a.round - b.round).map((s) => {
@@ -90,7 +91,12 @@ function parseSchedule(j) {
       sprint: s.sessions.some((x) => /sprint/i.test(x.type)),
       // teams lock at the first scored session of the weekend
       lock: starts.length ? new Date(Math.min(...starts)).toISOString() : null,
-      race: race && isFinite(Date.parse(race.start)) ? new Date(race.start).toISOString() : null
+      race: race && isFinite(Date.parse(race.start)) ? new Date(race.start).toISOString() : null,
+      // the scored sessions (for the GP tab and the live-session clock); live: 0 not started, 1 live, 2 over
+      sessions: s.sessions.filter((x) => isFinite(Date.parse(x.start))).map((x) => ({
+        type: x.type, key: x.key, live: x.live,
+        start: new Date(x.start).toISOString(), end: isFinite(Date.parse(x.end)) ? new Date(x.end).toISOString() : null
+      })).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
     };
   });
 }
@@ -200,6 +206,15 @@ async function main() {
     console.log("image config unavailable (" + e.message + "); keeping the last team colours and images");
   }
 
+  // the race weekend the GP tab shows (sessions, per-session points, practice results)
+  let weekend = null;
+  try {
+    weekend = await buildWeekend({ get, BASE, schedule, N, assets, live, log: (m) => console.log("weekend: " + m) });
+  } catch (e) {
+    console.log("weekend data unavailable (" + e.message + "); keeping the last");
+  }
+  if (!weekend && live && live.weekend) weekend = live.weekend;
+
   const managers = board.map((e) => {
     const id = String(e.social_id);
     const m = {
@@ -232,6 +247,7 @@ async function main() {
     assetPoints,
     ownershipGlobal,
     teamColors: teamColors || {},
+    weekend,
     managers
   };
   // rounds a late joiner is missing, entered by hand in config.js

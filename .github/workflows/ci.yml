@@ -22,4 +22,5 @@ jobs:
         env:
           NODE_PATH: /tmp/ci/node_modules
       - run: node tests/compute.test.js
+      - run: node tests/weekend.test.js
       - run: node scripts/verify-data.js

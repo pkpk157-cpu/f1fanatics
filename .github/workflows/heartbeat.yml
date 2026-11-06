@@ -3,7 +3,8 @@
 #
 # GitHub's own schedule is not a clock: it drops and delays scheduled runs,
 # sometimes for hours. So this job pokes the updater every ten minutes for
-# the best part of an hour, then hands over to a fresh copy of itself. The
+# the best part of an hour (every three minutes while a qualifying, sprint
+# or race is on), then hands over to a fresh copy of itself. The
 # chain keeps time; GitHub's schedule below only restarts it if it breaks.
 #
 # One chain at a time: the next heartbeat waits for this one to finish
@@ -44,6 +45,7 @@ jobs:
           sparse-checkout: |
             data.json
             scripts/season-over.js
+            scripts/session-live.js
           sparse-checkout-cone-mode: false
 
       - name: Is the season still on?
@@ -89,11 +91,19 @@ jobs:
               done
             done
           }
-          for i in 1 2 3 4 5; do
+          # every ten minutes; every three while a qualifying, sprint or race
+          # is on (scripts/session-live.js), so live points stay fresh
+          START=$(date +%s); i=0
+          while :; do
+            i=$((i + 1))
             heal
-            echo "--- poke $i of 5 at $(date -u +%H:%M:%SZ)"
+            LIVE=$(node scripts/session-live.js)
+            echo "--- poke $i at $(date -u +%H:%M:%SZ) (session live: $LIVE)"
             gh workflow run update-data.yml --repo "$REPO" --ref "$REF" || echo "::warning::poke $i failed"
-            if [ "$i" != "5" ]; then sleep 600; fi
+            if [ "$LIVE" = "true" ]; then GAP=180; else GAP=600; fi
+            # hand over after about 45 minutes
+            if [ $(( $(date +%s) - START + GAP )) -gt 2700 ]; then break; fi
+            sleep "$GAP"
           done
 
       - name: Check the updater is actually succeeding

@@ -31,6 +31,7 @@ jobs:
         run: |
           node scripts/check-sources.js
           node tests/compute.test.js
+          node tests/weekend.test.js
       # The tests are not part of the app; trim them from this runner's
       # checkout (never the repository) before it is packed for Pages.
       - run: rm -rf tests .github scripts
