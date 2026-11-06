@@ -44,6 +44,17 @@ Choosing your team (top of the menu) marks you everywhere with a small red
 the F1 Fantasy 2026 game rules (scoring, chips, transfers, prices, in
 `rules.js`, taken from F1 Fantasy's official rules text), and the About the data page.
 
+### Motion
+
+`motion.js` adds the movement: pages slide in from the side you're heading to
+and their parts cascade in; the podium rises 2-1-3 and its numerals pop; points
+and XP count up; Trends lines draw themselves and Compare's bars grow; the
+bottom bar's red highlight and the Points / XP thumb glide; sheets spring up,
+close with an animation and can be swiped down; tappable things press in (with
+a tiny vibration on Android); the header gains depth as the page scrolls; a
+light sweeps across 1st place now and then. Only transform and opacity are
+animated, and all of it switches off when the phone asks for reduced motion.
+
 ### The look
 
 Standings, XP and round results are drawn like F1's race-result graphic: a
