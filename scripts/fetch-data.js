@@ -44,9 +44,9 @@ const T_START = Date.now(), BUDGET_MS = 4 * 60 * 1000;
 const bust = () => "?_=" + Math.floor(Date.now() / 60000);
 
 // allowMissing: a 403 or 404 means "not published yet" and returns null
-async function get(url, { allowMissing = false } = {}) {
+async function get(url, { allowMissing = false, tries = 3 } = {}) {
   let last;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= tries; attempt++) {
     if (Date.now() - T_START > BUDGET_MS) throw new Unavailable("F1 is too slow right now (over " + BUDGET_MS / 60000 + " minutes)");
     try {
       const res = await fetch(url + bust(), {
@@ -60,7 +60,7 @@ async function get(url, { allowMissing = false } = {}) {
       catch (e) { throw new Unavailable(url + " did not return JSON"); }
     } catch (e) {
       last = e instanceof Unavailable ? e : new Unavailable(url + ": " + (e.cause && e.cause.code || e.message));
-      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 2000));
+      if (attempt < tries) await new Promise((r) => setTimeout(r, attempt * 2000));
     }
   }
   throw last;

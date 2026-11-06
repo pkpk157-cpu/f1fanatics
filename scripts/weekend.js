@@ -31,7 +31,7 @@ const OPEN = {
 };
 const LABEL = { FP1: "Practice 1", FP2: "Practice 2", FP3: "Practice 3", SQ: "Sprint Qualifying", S: "Sprint", Q: "Qualifying", R: "Race" };
 const ORDER = ["FP1", "FP2", "FP3", "SQ", "S", "Q", "R"];
-const MIN = 60 * 1000;
+const MIN = 60 * 1000, DAY = 24 * 60 * MIN;
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function of1(path) {
@@ -53,7 +53,7 @@ function currentRound(schedule, N, now) {
 }
 
 // one asset's per-session points and positions for round W, from its playerstats feed
-function sessionsOf(j, W) {
+function sessionsOf(j, W, isDriver = true) {
   const v = (j && (j.Value || j.Data && j.Data.Value)) || j || {};
   const md = (v.MatchWiseStats || []).find((g) => Number(g.GamedayId) === W);
   const out = {};
@@ -68,6 +68,7 @@ function sessionsOf(j, W) {
       else if (/not classified/i.test(ev)) nc = true;
     });
     if (!rd.StatsWise.length) return;
+    if (!isDriver) { nc = false; pos = null; }
     out[code] = { p, pos: nc ? null : pos, nc: nc || undefined, st: Number(rd.MatchStatus) || 0 };
   });
   return out;
@@ -80,8 +81,12 @@ async function buildWeekend({ get, BASE, schedule, N, assets, live, now = Date.n
   const prev = live && live.weekend && live.weekend.round === W ? live.weekend : null;
   const fantasy = s.sessions || [];
 
-  // the sessions, from OpenF1 (once per weekend; F1 Fantasy only lists the scored ones)
-  let sessions = prev && prev.sessions && prev.sessions.some((x) => /^FP|SQ/.test(x.code)) ? prev.sessions.map((x) => Object.assign({}, x)) : null;
+  // the sessions, from OpenF1 (F1 Fantasy only lists the scored ones): re-read from a day before
+  // the weekend to a day after it, in case one is moved or cancelled; otherwise the stored list
+  const fStarts = fantasy.map((x) => Date.parse(x.start)).filter(isFinite), fEnds = fantasy.map((x) => Date.parse(x.end) || Date.parse(x.start)).filter(isFinite);
+  const near = fStarts.length && now >= Math.min(...fStarts) - 2 * DAY && now <= Math.max(...fEnds) + DAY;
+  const prevList = prev && prev.sessions && prev.sessions.some((x) => /^FP|SQ/.test(x.code)) ? prev.sessions.map((x) => Object.assign({}, x)) : null;
+  let sessions = near ? null : prevList;
   let meetingKey = prev ? prev.meetingKey : null;
   if (!sessions) {
     try {
@@ -95,9 +100,11 @@ async function buildWeekend({ get, BASE, schedule, N, assets, live, now = Date.n
         code: OPEN[x.session_name][0], name: OPEN[x.session_name][1], key: x.session_key, start: iso(x.date_start), end: iso(x.date_end), pos: {}
       }));
     } catch (e) {
-      log("OpenF1 sessions unavailable (" + e.message + "); using F1 Fantasy's scored sessions");
-      sessions = null;
+      log("OpenF1 sessions unavailable (" + e.message + "); keeping the last list");
+      sessions = prevList;
     }
+    // keep the results already found
+    if (sessions && prevList) sessions.forEach((x) => { const o = prevList.find((y) => y.key === x.key); if (o && o.pos && Object.keys(o.pos).length) x.pos = o.pos; });
   }
   if (!sessions || !sessions.length) {
     sessions = fantasy.filter((x) => FANTASY[x.type]).map((x) => ({ code: FANTASY[x.type], name: LABEL[FANTASY[x.type]], key: x.key, start: x.start, end: x.end, pos: {} }));
@@ -111,11 +118,12 @@ async function buildWeekend({ get, BASE, schedule, N, assets, live, now = Date.n
   sessions.sort((a, b) => (Date.parse(a.start) || 0) - (Date.parse(b.start) || 0) || ORDER.indexOf(a.code) - ORDER.indexOf(b.code));
 
   // practice / sprint qualifying: where each driver finished, once the session is over
+  // (and no longer than ten days after it, so a session without results stops being asked for)
   const byTla = {};
   Object.values(assets).forEach((a) => { if (a.type === "D" && a.short) byTla[String(a.short).toUpperCase()] = a.id; });
   let numToId = null;
   for (const x of sessions) {
-    if (x.scored || Object.keys(x.pos || {}).length || !x.end || now < Date.parse(x.end) + 5 * MIN) continue;
+    if (x.scored || Object.keys(x.pos || {}).length || !x.end || now < Date.parse(x.end) + 5 * MIN || now > Date.parse(x.end) + 10 * DAY) continue;
     try {
       if (!numToId) {
         numToId = {};
@@ -136,25 +144,28 @@ async function buildWeekend({ get, BASE, schedule, N, assets, live, now = Date.n
   const firstScored = scored.length ? Math.min(...scored.map((x) => Date.parse(x.start))) : Infinity;
   const final = W <= N;
   let pts = prev ? prev.pts || {} : {};
-  const settled = prev && prev.final && final && Object.keys(pts).length;
-  if (!settled && now >= firstScored - 30 * MIN) {
-    const fresh = {};
-    let ok = 0;
-    for (const id of Object.keys(assets)) {
+  let ptsFinal = !!(prev && prev.ptsFinal && final);
+  if (!ptsFinal && now >= firstScored - 30 * MIN) {
+    const fresh = Object.assign({}, pts), ids = Object.keys(assets);
+    let ok = 0, failsInRow = 0;
+    for (const id of ids) {
+      if (failsInRow >= 3) break;
       try {
-        const j = await get(`${BASE}/popup/playerstats_${id}.json`);
-        const x = sessionsOf(j, W);
+        const j = await get(`${BASE}/popup/playerstats_${id}.json`, { tries: 1 });
+        const x = sessionsOf(j, W, assets[id].type !== "C");
         if (Object.keys(x).length) fresh[id] = x;
-        ok++;
+        ok++; failsInRow = 0;
       } catch (e) {
-        if (prev && prev.pts && prev.pts[id]) fresh[id] = prev.pts[id];
+        failsInRow++;
       }
     }
     if (ok) pts = fresh;
-    else log("F1 Fantasy per-player feed unavailable; keeping the last weekend points");
+    if (ok < ids.length) log("F1 Fantasy per-player feed: " + ok + " of " + ids.length + " read; kept the rest");
+    // the round is scored and every file was read: these are the final numbers, no need to read them again
+    ptsFinal = final && ok === ids.length;
   }
 
-  return { round: W, name: s.name || "Round " + W, short: s.short, sprint: !!s.sprint, meetingKey: meetingKey || null, final, sessions, pts };
+  return { round: W, name: s.name || "Round " + W, short: s.short, sprint: !!s.sprint, meetingKey: meetingKey || null, final, ptsFinal, sessions, pts };
 }
 const FANTASY_CODES = { Q: 1, R: 1, S: 1 };
 

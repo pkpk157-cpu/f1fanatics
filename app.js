@@ -124,7 +124,7 @@
   function youTag() { return ' <span class="you">You</span>'; }
   // a manager's initials in a circle, in a colour of their own (the same everywhere); yours has a red ring
   function avatar(m, cls) {
-    var p = String(m.name || "?").trim().split(/\s+/), ini = (p[0] || "?").charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : "");
+    var p = String(m.name || "?").trim().split(/\s+/), first = function (w) { return Array.from(w || "")[0] || ""; }, ini = (first(p[0]) || "?") + (p.length > 1 ? first(p[p.length - 1]) : "");
     var h = 0, id = String(m.id); for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
     return '<span class="av' + (cls ? " " + cls : "") + (isMe(m) ? " me" : "") + '" style="--avh:' + h + '" aria-hidden="true">' + esc(ini.toUpperCase()) + "</span>";
   }
@@ -692,7 +692,9 @@
   // upcoming / live / done, from F1 Fantasy's live flag where it has one, else the clock
   function gpState(x) {
     var now = Date.now(), a = Date.parse(x.start), b = Date.parse(x.end);
-    if (x.live === 1) return "live";
+    if (!isFinite(b) && isFinite(a)) b = a + 2 * 3600e3; // no end time: assume two hours
+    // F1 Fantasy's live flag, unless it is stale (the session should be long over)
+    if (x.live === 1 && !(isFinite(b) && now > b + 3600e3)) return "live";
     if (x.live === 2) return "done";
     if (isFinite(a) && now < a) return "upcoming";
     if (isFinite(b) && now <= b + 10 * 60000) return "live";
@@ -720,7 +722,9 @@
       (g.s.sprint ? '<span class="gpp up">Sprint weekend</span>' : "") + "</div></section>";
     if (!me) return SUB("weekend") + head + '<section class="card youpick"><h2>Which team is yours?</h2>' + teamSelect() + "</section>";
 
-    var team = (g.W <= M.N && me.team_[g.W] && me.team_[g.W].length ? me.team_[g.W] : me.picks).slice();
+    // the team used in a scored round; the current picks for the weekend underway
+    var known = g.W > M.N || !!(me.team_[g.W] && me.team_[g.W].length);
+    var team = known ? (g.W <= M.N ? me.team_[g.W] : me.picks).slice() : [];
     var isD = function (id) { return (assetOf(id) || {}).type === "D"; };
     var wkPts = function (id) {
       var x = g.pts[id]; if (!x) return null;
@@ -739,8 +743,8 @@
     h += '<section class="card"><div class="totw-h"><div><div class="k">' + totalLabel + '</div><div class="v gp-total">' + (total == null ? "–" : fmt(total)) + "</div></div>" +
       '<div class="ttl"><b>Your team</b><span>' + esc(g.s.name) + "</span></div>" +
       '<div class="r"><div class="k">' + (rr ? "In the round" : "Sessions") + '</div><div class="v">' + (rr ? ordM(rr) : scoredDone.length + "/" + g.sessions.filter(function (x) { return x.scored; }).length) + "</div></div></div>" +
-      teamGrid(team.filter(isD).map(function (id) { return { id: id }; }), team.filter(function (id) { return !isD(id); }).map(function (id) { return { id: id }; }),
-        function (x) { var p = wkPts(x.id); return p == null ? {} : { pts: p }; }) + "</section>";
+      (known ? teamGrid(team.filter(isD).map(function (id) { return { id: id }; }), team.filter(function (id) { return !isD(id); }).map(function (id) { return { id: id }; }),
+        function (x) { var p = wkPts(x.id); return p == null ? {} : { pts: p }; }) : '<div class="gp-wait">Your team for this round isn\'t published.</div>') + "</section>";
 
     // every session, in order
     g.sessions.forEach(function (x, i) {
@@ -1399,7 +1403,8 @@
   setInterval(function () {
     if (!S.model || document.hidden) return;
     if (gpLive() || Date.now() - S.fetchedAt >= REFRESH_MS) refresh(true);
-    if (S.tab === "gp") render(); else renderChrome();
+    var busy = document.activeElement && document.activeElement !== document.body && $("view").contains(document.activeElement);
+    if (S.tab === "gp" && !busy) render(); else renderChrome();
   }, 60 * 1000);
 
   // which pictures the photos workflow has mirrored; none yet = initials

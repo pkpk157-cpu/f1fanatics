@@ -155,7 +155,8 @@
       d.style.transition = "transform .26s cubic-bezier(.2,.8,.2,1)";
       if (dy > 110 || v > 0.7) {
         d.style.transform = "translateY(110%)";
-        setTimeout(function () { d.style.transform = ""; d.style.transition = ""; if (done) done(); }, 240);
+        d._closing = true;
+        d._closeT = setTimeout(function () { d._closing = false; d.style.transform = ""; d.style.transition = ""; if (done) done(); }, 240);
       } else {
         d.style.transform = "";
         setTimeout(function () { d.style.transition = ""; }, 280);
