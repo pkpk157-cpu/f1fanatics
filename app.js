@@ -751,11 +751,14 @@
   /* ---------------- sheets ---------------- */
   function openSheet(html) {
     $("sheetBody").innerHTML = html;
-    var d = $("sheet");
+    var d = $("sheet"), Mo = window.F1FMotion;
+    if (Mo) Mo.cancelClose(d);
     if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); }
     d.querySelector(".sheet-inner").scrollTop = 0;
+    if (Mo) try { Mo.enter($("sheetBody"), 0); } catch (e) {}
   }
-  function closeSheet() { var d = $("sheet"); if (d.open) { if (d.close) d.close(); else d.removeAttribute("open"); } }
+  function shutDialog(d) { if (d.open) { if (d.close) d.close(); else d.removeAttribute("open"); } }
+  function closeSheet() { var d = $("sheet"); if (window.F1FMotion) window.F1FMotion.close(d, function () { shutDialog(d); }); else shutDialog(d); }
 
   /* a manager's season, in parts: the sheet shows them all, the Your team tab one per sub-tab */
   function managerParts(m) {
@@ -1054,9 +1057,10 @@
   function openDrawer() {
     var d = $("drawer");
     $("drawerBody").innerHTML = drawerHtml();
+    if (window.F1FMotion) window.F1FMotion.cancelClose(d);
     if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); }
   }
-  function closeDrawer() { var d = $("drawer"); if (d.open) { if (d.close) d.close(); else d.removeAttribute("open"); } }
+  function closeDrawer() { var d = $("drawer"); if (window.F1FMotion) window.F1FMotion.close(d, function () { shutDialog(d); }); else shutDialog(d); }
 
   /* ---------------- settings ---------------- */
   function themeNow() { return document.documentElement.getAttribute("data-theme") || "dark"; }
@@ -1161,6 +1165,19 @@
       if (window.console) console.error(e);
       v.innerHTML = '<div class="empty">This page couldn\'t be shown. Try another tab, or reopen the app.</div>';
     }
+    // motion: a new page arrives from the side you're heading to; a refresh of the same page doesn't move
+    var key = S.tab + "/" + cur, Mo = window.F1FMotion;
+    if (Mo) {
+      try {
+        if (key !== S.lastView) {
+          var a = TABS.indexOf(S.tab), b = S.lastView ? TABS.indexOf(S.lastView.split("/")[0]) : a;
+          Mo.enter(v, a === b ? 0 : a > b ? 1 : -1);
+        }
+        Mo.toggle(v);
+        Mo.tabs($("tabs"));
+      } catch (e) { if (window.console) console.error(e); }
+    }
+    S.lastView = key;
   }
   function hydrateCharts(root) {
     root.querySelectorAll(".chartbox").forEach(function (box) {
@@ -1224,10 +1241,21 @@
     }
     if (e.target.classList && e.target.classList.contains("cmpRound") && S.cmp) {
       var a = byId(S.cmp.a), b = byId(S.cmp.b), r = Number(e.target.value), box = $("cmpTeams");
-      if (a && b && box && r >= 1 && r <= S.model.N) { S.cmp.r = r; box.innerHTML = compareTeams(a, b, r); }
+      if (a && b && box && r >= 1 && r <= S.model.N) { S.cmp.r = r; box.innerHTML = compareTeams(a, b, r); if (window.F1FMotion) window.F1FMotion.swap(box); }
     }
   });
   $("sheetClose").addEventListener("click", closeSheet);
+  // Escape (and Android back) close with the same animation
+  $("sheet").addEventListener("cancel", function (e) { e.preventDefault(); closeSheet(); });
+  $("drawer").addEventListener("cancel", function (e) { e.preventDefault(); closeDrawer(); });
+  if (window.F1FMotion) {
+    var Mo = window.F1FMotion;
+    Mo.swipeToClose($("sheet"), $("sheet").querySelector(".sheet-inner"), function () { shutDialog($("sheet")); });
+    Mo.presses();
+    Mo.header(document.querySelector(".topbar"));
+    document.addEventListener("click", function (e) { if (e.target.closest("#tabs a, .lbt a, [data-compare], .subtabs a")) Mo.haptic(); });
+    window.addEventListener("resize", function () { Mo.tabs($("tabs")); });
+  }
   $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) closeSheet(); });
   $("menuBtn").addEventListener("click", function () { if (S.model) openDrawer(); });
   $("drawer").addEventListener("click", function (e) { if (e.target === $("drawer")) closeDrawer(); });

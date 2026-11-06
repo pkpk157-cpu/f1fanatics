@@ -11,7 +11,7 @@ const ROOT = path.join(__dirname, "..");
 let bad = 0;
 const fail = (f, why) => { bad++; console.log("FAIL " + f + " — " + why); };
 
-const js = ["app.js", "compute.js", "config.js", "rules.js", "sw.js"]
+const js = ["app.js", "motion.js", "compute.js", "config.js", "rules.js", "sw.js"]
   .concat(fs.readdirSync(path.join(ROOT, "scripts")).filter((f) => f.endsWith(".js")).map((f) => "scripts/" + f))
   .concat(fs.readdirSync(path.join(ROOT, "tests")).filter((f) => f.endsWith(".js")).map((f) => "tests/" + f));
 js.forEach((f) => {
