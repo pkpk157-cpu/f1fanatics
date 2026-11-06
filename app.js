@@ -4,7 +4,7 @@
   "use strict";
   var CONFIG = window.F1F_CONFIG;
   var F1F = window.F1F;
-  var TABS = ["league", "races", "you", "trends", "gp", "picks", "stats"];
+  var TABS = ["league", "races", "gp", "trends", "you", "picks", "stats"];
   var OLD_TABS = { standings: "league" };
   // each tab is split into sub-tabs; only the chosen one is drawn
   var SUBS = {
@@ -876,7 +876,7 @@
   function shutDialog(d) { if (d.open) { if (d.close) d.close(); else d.removeAttribute("open"); } }
   function closeSheet() { var d = $("sheet"); if (window.F1FMotion) window.F1FMotion.close(d, function () { shutDialog(d); }); else shutDialog(d); }
 
-  /* a manager's season, in parts: the sheet shows them all, the Your team tab one per sub-tab */
+  /* a manager's season, in parts: the sheet shows them all, the Your profile tab one per sub-tab */
   function managerParts(m) {
     var M = S.model, n = M.managers.length, P = {};
     var o = {}; M.ownership.forEach(function (x) { o[x.id] = x; });
@@ -1097,7 +1097,7 @@
       }).join("") + "</select>";
   }
 
-  /* Your team: your season, one part per sub-tab */
+  /* Your profile: your season, one part per sub-tab */
   function viewYou() {
     var m = S.me && byId(S.me);
     if (!m) {

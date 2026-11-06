@@ -17,14 +17,14 @@ Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
   sprint) beneath, and under the name the round's top three as F1-style codes,
   e.g. 1 VOH 2 PUR 3 KAP; tap a finished one for
   its podium, Dream team and who scored, ‹ › through the season) · Race grid
-- **Your team** (middle): Season (four figures and every round) · Team ·
+- **Your profile** (right-most): Season (four figures and every round) · Team ·
   Picks (who scored for you) · Rivals (either side, head to head)
 - **Trends**: Position · Points (running total) · Gap to the leader. Fully
   zoomed out, every race fits on screen, numbered and named vertically along the
   bottom; zoom in on both axes (pinch, trackpad pinch, or + / −) and scroll.
   The names below pick which lines are highlighted, each in its own colour
   (the leader and you to start with); **All** highlights everyone
-- **GP** (its label is the weekend's three letters, e.g. MEX): the last race
+- **GP** (centre; its label is the weekend's three letters, e.g. MEX): the last race
   weekend until the next one locks, then the next. Your team for that weekend
   with its points, your total (live while a session runs, provisional once it
   ends, final once F1 scores the round, with your place in the round), and
