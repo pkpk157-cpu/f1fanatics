@@ -1082,3 +1082,5 @@ html, body { overflow-x: clip; }
 .whw { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .whn { min-width: 0; }
 .whn .n, .whn .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.rrow { text-decoration: none; color: inherit; }
+.rlist.races a.rrow.todo.on { cursor: pointer; }

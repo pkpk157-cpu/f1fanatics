@@ -332,12 +332,12 @@
       entries: rows.map(function (m) { return { m: m, rank: rk.get(m), value: cur(P.by[m.id].total, true), sub: esc(m.team) }; })
     });
     // how each total is made: races won, the race XP they paid, the season XP their place is on track for
-    h += '<section class="card"><div class="tblwrap"><table class="xpt"><thead><tr><th class="l">Manager</th><th>Wins</th><th>Race</th><th>On track</th><th>Total</th></tr></thead><tbody>';
+    h += '<section class="card"><div class="tblwrap"><table class="xpt"><thead><tr><th class="l">Manager</th><th>Wins</th><th>Race</th><th>' + (M.remaining ? "On track" : "Won") + "</th><th>Total</th></tr></thead><tbody>";
     rows.forEach(function (m) {
       var x = P.by[m.id], n = x.raceWins.length, sh = x.raceWins.filter(function (w) { return w.shared; }).length;
       var track = m.rank <= places
         ? cur(x.projected, true) + "<small>" + ordM(m.rank) + "</small>"
-        : '<span class="muted">–</span>' + (cutPts != null ? "<small>" + fmt(cutPts - m.total) + " off " + ordinal(places) + "</small>" : "");
+        : '<span class="muted">–</span>' + (cutPts != null && M.remaining ? "<small>" + fmt(cutPts - m.total) + " off " + ordinal(places) + "</small>" : "");
       h += '<tr class="click" data-m="' + esc(m.id) + '"><td class="l"><span class="nmw">' + avatar(m, "xs") + '<span class="nmt">' + esc(firstName(m)) + "</span></span></td>" +
         "<td>" + (n ? n + (sh ? "<small>" + sh + " shared</small>" : "") : '<span class="muted">0</span>') + "</td>" +
         "<td>" + (x.race ? cur(x.race, true) : '<span class="muted">0</span>') + "</td>" +
@@ -396,10 +396,13 @@
           '</div><div class="rpts"><b>' + fmt(ri.high) + "</b>PTS</div></div>";
       } else {
         var next = M.next && M.next.round === s.round;
-        var lock = next && s.lock && Date.parse(s.lock) > Date.now() ? "<small>locks in " + until(s.lock) + "</small>" : "";
-        h += '<div class="rrow todo' + (next ? " next" : "") + '">' + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
+        var locked = next && s.lock && Date.now() >= Date.parse(s.lock);
+        var raced = next && s.race && Date.now() > Date.parse(s.race) + 2 * 3600e3;
+        var lock = next && !locked && s.lock ? "<small>locks in " + until(s.lock) + "</small>" : "";
+        // the weekend underway (or raced and waiting for F1's scores) opens the GP tab
+        h += (locked ? '<a class="rrow todo next on" href="#gp">' : '<div class="rrow todo' + (next ? " next" : "") + '">') + pos + '<div class="rname"><b>' + esc(s.name) + "</b>" +
           (lock ? '<span class="top3">' + lock + "</span>" : "") +
-          '</div><div class="rpts">' + (next ? "<b>NEXT</b>" : "") + "</div></div>";
+          '</div><div class="rpts">' + (next ? "<b>" + (raced ? "SCORING" : locked ? "NOW" : "NEXT") + "</b>" : "") + "</div>" + (locked ? "</a>" : "</div>");
       }
     });
     return h + "</div></section>";
@@ -588,8 +591,11 @@
       yi.innerHTML = '<svg class="chart" viewBox="0 0 ' + axisW + " " + H + '" width="' + axisW + '" height="' + H + '" aria-hidden="true"><g class="axis">' +
         ticks.map(function (t) { return '<text x="' + (axisW - 6) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + tickLabel(t) + "</text>"; }).join("") + "</g></svg>";
       var vert = step < 34;
+      // vertical labels need about 12px each: when races are closer, label every second (or third) race, counted back from the latest
+      var every = vert ? Math.max(1, Math.ceil(12 / step)) : 1, nR = rounds.length;
       xi.innerHTML = '<svg class="chart" viewBox="0 0 ' + W + " " + xH + '" width="' + W + '" height="' + xH + '" aria-hidden="true"><g class="axis xr">' +
-        rounds.map(function (r) {
+        rounds.map(function (r, i) {
+          if ((nR - 1 - i) % every) return "";
           var gp = esc(abbr(roundName(r)));
           return vert
             ? '<text transform="translate(' + (x(r) - 3.5).toFixed(1) + ' 4) rotate(90)"><tspan class="rn">' + r + "</tspan> " + gp + "</text>"
@@ -726,7 +732,7 @@
     var prov = team.reduce(function (t, id) { return t + (wkPts(id) || 0); }, 0);
     var official = g.final ? me.pts[g.W] : null;
     var total = official != null ? official : anyPts ? prov : null;
-    var totalLabel = official != null ? "Final" : live ? "Live" : anyPts ? "Provisional" : "Points";
+    var totalLabel = "Points";
     var rr = g.final ? me.roundRank[g.W] : null;
 
     var h = SUB("weekend") + head;
