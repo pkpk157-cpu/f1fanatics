@@ -120,6 +120,25 @@
   }
   function signedMoney(v) { return v == null || v === 0 ? "" : '<span class="' + (v > 0 ? "up" : "down") + '">' + (v > 0 ? "▲" : "▼") + "$" + fmt(Math.abs(v), 1) + "m</span>"; }
 
+  // the boost worked out for a manager's round (see compute.js): {id, x} or null
+  function boostOf(m, r) { return (m && m.boost && m.boost[r]) || null; }
+  // a pick's card options for a round: its points (boosted if it was the boost) and the badge
+  function pickOpt(m, r, id, pts) {
+    var b = boostOf(m, r), o = {};
+    if (pts != null) o.pts = b && b.id === id ? pts * b.x : pts;
+    if (b && b.id === id) o.boost = b.x + "×";
+    return o;
+  }
+  // every chip, with the race it was played in where the numbers show it
+  function chipsCard(m) {
+    var ch = m.chips || {};
+    return '<section class="card chips-card"><h2>Chips</h2><div class="chipl">' + F1F.CHIPS.map(function (c) {
+      var r = ch[c];
+      return '<div class="chiprow' + (r ? " used" : "") + '"><span class="chn">' + esc(c) + "</span>" +
+        (r ? '<span class="chr"><b>R' + r + "</b> " + esc(roundName(r)) + "</span>" : '<span class="chr muted">Not detected</span>') + "</div>";
+    }).join("") + "</div></section>";
+  }
+
   // marks your own name wherever managers are listed
   function youTag() { return ' <span class="you">You</span>'; }
   // a manager's initials in a circle, in a colour of their own (the same everywhere); yours has a red ring
@@ -744,7 +763,7 @@
       '<div class="ttl"><b>Your team</b><span>' + esc(g.s.name) + "</span></div>" +
       '<div class="r"><div class="k">' + (rr ? "In the round" : "Sessions") + '</div><div class="v">' + (rr ? ordM(rr) : scoredDone.length + "/" + g.sessions.filter(function (x) { return x.scored; }).length) + "</div></div></div>" +
       (known ? teamGrid(team.filter(isD).map(function (id) { return { id: id }; }), team.filter(function (id) { return !isD(id); }).map(function (id) { return { id: id }; }),
-        function (x) { var p = wkPts(x.id); return p == null ? {} : { pts: p }; }) : '<div class="gp-wait">Your team for this round isn\'t published.</div>') + "</section>";
+        function (x) { var p = wkPts(x.id); return g.final ? pickOpt(me, g.W, x.id, p) : p == null ? {} : { pts: p }; }) : '<div class="gp-wait">Your team for this round isn\'t published.</div>') + "</section>";
 
     // every session, in order
     g.sessions.forEach(function (x, i) {
@@ -904,13 +923,15 @@
     var con = m.picks.filter(function (id) { return (assetOf(id) || {}).type === "C"; }).map(function (id) { return { id: id }; });
     P.team = '<section class="card"><div class="totw-h"><div><div class="k">Team value</div><div class="v">' + money(m.currentValue) + '</div></div><div class="ttl"><b>Current team</b><span>as used in ' + esc(roundName(M.N)) +
       '</span></div><div class="r"><div class="k">' + esc(abbr(roundName(M.N))) + ' points</div><div class="v">' + fmt(m.last) + "</div></div></div>" +
-      teamGrid(drv, con, function (x) { return { pts: lp[x.id] }; }) + "</section>";
-    var r0 = '<section class="card"><div class="tblwrap"><table><thead><tr><th class="l">Round</th><th>Pts</th><th>Finish</th><th>League</th><th>Value</th><th>Changes</th></tr></thead><tbody>';
+      teamGrid(drv, con, function (x) { return (m.team_[M.N] || []).indexOf(x.id) >= 0 ? pickOpt(m, M.N, x.id, lp[x.id]) : { pts: lp[x.id] }; }) + "</section>";
+    P.chips = chipsCard(m);
+    var r0 = '<section class="card"><div class="tblwrap"><table><thead><tr><th class="l">Round</th><th>Pts</th><th>Finish</th><th>League</th><th>Boost</th><th>Value</th><th>Changes</th></tr></thead><tbody>';
     M.rounds.slice().reverse().forEach(function (r) {
       var ri = M.roundInfo[r - 1];
-      if (m.pts[r] == null) { r0 += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td colspan="5" class="muted c">not in the league yet</td></tr>'; return; }
+      if (m.pts[r] == null) { r0 += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td colspan="6" class="muted c">not in the league yet</td></tr>'; return; }
       r0 += '<tr><td class="l">' + r + " · " + esc(ri.short) + '</td><td class="num" style="' + heat(m.roundRank[r], ri.count) + '">' + fmt(m.pts[r]) + "</td><td>" + ordM(m.roundRank[r]) +
-        "</td><td>" + ordM(m.rankAt[r]) + "</td><td>" + money(m.teamValue[r]) + "</td><td>" + (m.transfers[r] == null ? "–" : m.transfers[r]) + "</td></tr>";
+        "</td><td>" + ordM(m.rankAt[r]) + "</td><td>" + (boostOf(m, r) ? esc((assetOf(m.boost[r].id) || {}).short || "?") + " <small>" + m.boost[r].x + "×</small>" : '<span class="muted">–</span>') +
+        "</td><td>" + money(m.teamValue[r]) + "</td><td>" + (m.transfers[r] == null ? "–" : m.transfers[r]) + "</td></tr>";
     });
     P.rounds = r0 + "</tbody></table></div></section>";
 
@@ -963,7 +984,7 @@
     var P = managerParts(m);
     var cmp = isMe(m) ? "" : '<button type="button" class="cmp-btn" data-compare="' + esc(m.id) + '">' +
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M17 4v16M3 8h8M13 16h8" /></svg>Compare with ' + (S.me && byId(S.me) ? "you" : "your team") + "</button>";
-    openSheet(P.head + cmp + P.tiles + P.team + P.rounds);
+    openSheet(P.head + cmp + P.tiles + P.team + P.chips + P.rounds);
   }
 
   /* ---------------- compare: you and another manager ---------------- */
@@ -1043,11 +1064,12 @@
     var pts = (S.data.assetPoints || {})[r] || {};
     var ta = a.team_[r] || [], tb = b.team_[r] || [];
     var byPts = function (x, y) { return (pts[y] || 0) - (pts[x] || 0); };
-    var cell = function (id, same) {
+    var cell = function (id, same, m) {
       if (!id) return '<div class="cpick none"></div>';
-      var A = assetOf(id) || { name: "?", type: "D", team: "" }, n = splitName(A);
-      return '<div class="cpick' + (same ? " same" : "") + '" style="' + tc(teamColor(A.team)) + '">' +
-        '<span class="ctile">' + (A.type === "C" ? pic(id, "logo", "clogo") : pic(id, "head", "chead")) + '</span><span class="cnm">' + esc(n.last) + "</span><b>" + fmt(pts[id]) + "</b></div>";
+      var A = assetOf(id) || { name: "?", type: "D", team: "" }, n = splitName(A), o = pickOpt(m, r, id, pts[id]);
+      return '<div class="cpick' + (same && !o.boost ? " same" : "") + '" style="' + tc(teamColor(A.team)) + '">' +
+        '<span class="ctile">' + (A.type === "C" ? pic(id, "logo", "clogo") : pic(id, "head", "chead")) + '</span><span class="cnm">' + esc(n.last) + "</span>" +
+        (o.boost ? '<span class="cbx">' + o.boost + "</span>" : "") + "<b>" + fmt(o.pts) + "</b></div>";
     };
     var block = function (type) {
       var A = ta.filter(function (id) { return (assetOf(id) || {}).type === type; });
@@ -1055,8 +1077,8 @@
       var same = A.filter(function (id) { return B.indexOf(id) >= 0; }).sort(byPts);
       var onlyA = A.filter(function (id) { return same.indexOf(id) < 0; }).sort(byPts);
       var onlyB = B.filter(function (id) { return same.indexOf(id) < 0; }).sort(byPts);
-      var rows = same.map(function (id) { return cell(id, true) + cell(id, true); });
-      for (var i = 0; i < Math.max(onlyA.length, onlyB.length); i++) rows.push(cell(onlyA[i]) + cell(onlyB[i]));
+      var rows = same.map(function (id) { return cell(id, true, a) + cell(id, true, b); });
+      for (var i = 0; i < Math.max(onlyA.length, onlyB.length); i++) rows.push(cell(onlyA[i], false, a) + cell(onlyB[i], false, b));
       return rows.join("");
     };
     var known = function (m) { return (m.team_[r] || []).length > 0; };
@@ -1121,7 +1143,7 @@
       (m.gapLeader ? "−" + fmt(m.gapLeader) + " to 1st" : "leading") + "</small></div></section>";
     return head +
       SUB("season") + P.tiles + P.rounds +
-      SUB("team") + P.team +
+      SUB("team") + P.team + P.chips +
       SUB("picks") + P.picks +
       SUB("rivals") + P.rivals;
   }

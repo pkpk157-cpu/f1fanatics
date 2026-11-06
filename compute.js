@@ -276,8 +276,55 @@
         m.transfers[r] = n; tot += n; prevTeam = t;
       });
       m.totalTransfers = tot;
+      worked(m);
 
     });
+
+    // Boosts and chips, worked out from the scores. F1 doesn't publish them; a round's score is
+    // its seven picks' points, plus the boosted driver once more (2x) or twice more (x3 Boost),
+    // minus 10 per extra transfer. Only answers the numbers allow in exactly one way are kept:
+    //   boost[r]  {id, x: 2 | 3}  when exactly one driver explains the score
+    //   chips     {name: round}   x3 Boost (a single 3x fit), No Negative (fits only once the
+    //             negatives are wiped), Limitless (3+ changes, then the old team comes back),
+    //             Wildcard (4+ changes, no penalty, not reverted); a chip seen in more than one
+    //             round is dropped. Autopilot and Final Fix leave no trace in the numbers.
+    function worked(m) {
+      var ap = data.assetPoints || {}, seen = {};
+      m.boost = {};
+      var same = function (a, b) { return !!(a && b && a.length === b.length && a.every(function (x) { return b.indexOf(x) >= 0; })); };
+      var add = function (c, r) { (seen[c] = seen[c] || []).push(r); };
+      rounds.forEach(function (r) {
+        var t = m.team_[r], P = ap[r];
+        if (!t || !t.length || !P || m.pts[r] == null) return;
+        var pts = function (id) { return Number(P[id]) || 0; };
+        var drv = t.filter(function (id) { return assets[id] && assets[id].type === "D"; });
+        var diff = m.pts[r] - t.reduce(function (s, id) { return s + pts(id); }, 0);
+        var prev = m.team_[r - 1], next = m.team_[r + 1];
+        var changed = prev ? t.filter(function (id) { return prev.indexOf(id) < 0; }).length : 0;
+        // the penalty the changes allow: 2 free transfers a race (3 with one carried over), -10 each beyond;
+        // none at all if a Wildcard or Limitless made them free
+        var pOK = function (p) { return p === 0 || (p >= Math.max(0, changed - 3) && p <= Math.max(0, changed - 2)); };
+        var fits = [];
+        drv.forEach(function (id) { for (var k = 1; k <= 2; k++) for (var p = 0; p <= 4; p++) if (pOK(p) && k * pts(id) - 10 * p === diff) fits.push({ id: id, k: k, p: p }); });
+        var reverted = !!(prev && next && same(next, prev));
+        if (fits.length === 1) {
+          m.boost[r] = { id: fits[0].id, x: fits[0].k + 1 };
+          if (fits[0].k === 2) add("x3 Boost", r);
+          if (changed >= 4 && fits[0].p === 0 && !reverted) add("Wildcard", r);
+        }
+        if (prev && changed >= 3 && reverted) add("Limitless", r);
+        if (!fits.length) {
+          var neg = t.reduce(function (s, id) { return s + Math.max(0, -pts(id)); }, 0), nn = [];
+          if (neg > 0) drv.forEach(function (id) { var q = Math.max(0, pts(id)); for (var k = 1; k <= 2; k++) for (var p = 0; p <= 4; p++) if (pOK(p) && k * q - 10 * p + neg === diff) nn.push(id); });
+          if (nn.length) {
+            add("No Negative", r);
+            if (nn.every(function (id) { return id === nn[0]; })) m.boost[r] = { id: nn[0], x: 2 };
+          }
+        }
+      });
+      m.chips = {};
+      Object.keys(seen).forEach(function (c) { if (seen[c].length === 1) m.chips[c] = seen[c][0]; });
+    }
 
     // Dream team: the best five drivers and two constructors of each round as
     // F1 Fantasy scored them, top driver boosted 2x, no cost cap, at that
@@ -446,7 +493,8 @@
     return out;
   }
 
-  var F1F = { build: build, applyManualRounds: applyManualRounds, prizes: prizes, splitExact: splitExact, verify: verify, reconcile: reconcile, mean: mean, median: median, stdev: stdev, rankBy: rankBy };
+  var CHIPS = ["Limitless", "Wildcard", "Final Fix", "Autopilot", "x3 Boost", "No Negative"];
+  var F1F = { CHIPS: CHIPS, build: build, applyManualRounds: applyManualRounds, prizes: prizes, splitExact: splitExact, verify: verify, reconcile: reconcile, mean: mean, median: median, stdev: stdev, rankBy: rankBy };
   if (typeof module !== "undefined" && module.exports) module.exports = F1F;
   else root.F1F = F1F;
 })(this);

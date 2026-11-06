@@ -147,4 +147,30 @@ test("hand-entered rounds fill a late joiner's gap only when they add up", () =>
   assert.ok(!bad.managers.find((m) => m.id === "185065214").rounds[1], "wrong numbers are not applied");
 });
 
+// boosts and chips worked out from the scores (synthetic league: one manager, 4 rounds)
+(() => {
+  const A = { D1: { type: "D", short: "AAA" }, D2: { type: "D", short: "BBB" }, D3: { type: "D", short: "CCC" }, D4: { type: "D", short: "DDD" }, D5: { type: "D", short: "EEE" },
+    D6: { type: "D", short: "FFF" }, D7: { type: "D", short: "GGG" }, D8: { type: "D", short: "HHH" }, C1: { type: "C" }, C2: { type: "C" }, C3: { type: "C" } };
+  Object.keys(A).forEach((id) => { A[id].id = id; A[id].name = id; A[id].team = "T"; });
+  const team1 = ["D1", "D2", "D3", "D4", "D5", "C1", "C2"], team3 = ["D6", "D7", "D8", "D4", "D5", "C3", "C2"];
+  const ap = {
+    1: { D1: 33, D2: 10, D3: 5, D4: 2, D5: 1, C1: 20, C2: 10 },   // 81 + D1 again (2x) = 114 (33 can only be D1 once more)
+    2: { D1: 12, D2: 12, D3: 5, D4: 2, D5: 1, C1: 20, C2: 10 },   // 62 + 12: D1 or D2? ambiguous
+    3: { D6: 25, D7: 3, D8: 1, D4: 2, D5: 1, C3: 10, C2: 10 },    // 52 + 2*25 (x3) = 102, after 4 changes then back: Limitless
+    4: { D1: 20, D2: -8, D3: 5, D4: 2, D5: 1, C1: 10, C2: 10 }    // 40, negatives wiped (+8) and D1 boosted (+20) = 68
+  };
+  const rounds = { 1: { pts: 114, rank: 1, team: team1 }, 2: { pts: 74, rank: 1, team: team1 }, 3: { pts: 102, rank: 1, team: team3 }, 4: { pts: 68, rank: 1, team: team1 } };
+  const data = { roundsPlayed: 4, schedule: [], assets: A, prices: {}, assetPoints: ap,
+    managers: [{ id: "x", name: "Test Manager", team: "T", rank: 1, total: 358, picks: team1, rounds }] };
+  const m = F1F.build(data).managers[0];
+  test("boost: one driver explains the score", () => assert.deepStrictEqual(m.boost[1], { id: "D1", x: 2 }));
+  test("boost: two drivers explain it equally, so none is claimed", () => assert.strictEqual(m.boost[2], undefined));
+  test("x3 Boost: a single 3x fit; Limitless: big change, then the old team is back", () => {
+    assert.deepStrictEqual(m.boost[3], { id: "D6", x: 3 });
+    assert.strictEqual(m.chips["x3 Boost"], 3); assert.strictEqual(m.chips.Limitless, 3); assert.strictEqual(m.chips.Wildcard, undefined);
+  });
+  test("No Negative: the score only fits with the negatives wiped", () => { assert.strictEqual(m.chips["No Negative"], 4); assert.deepStrictEqual(m.boost[4], { id: "D1", x: 2 }); });
+  test("chips that leave no trace are never claimed", () => { assert.strictEqual(m.chips.Autopilot, undefined); assert.strictEqual(m.chips["Final Fix"], undefined); });
+})();
+
 console.log(n + " tests passed");

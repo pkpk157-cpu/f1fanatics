@@ -129,9 +129,17 @@ round scores arrive before the standings, the totals shown include the new
 round. If the standings arrive first, F1's totals are shown and a banner says
 the round breakdown is pending. The ⓘ sheet in the app shows the latest checks.
 
-Not in the public feeds, so not in the tracker: money in the bank, which
-driver got the DRS boost, and which chips were played. Team value means the
-seven picks at that round's prices, so a one-round spike is the Limitless chip.
+Not in the public feeds: money in the bank, and which driver got the boost
+and which chips were played. Boosts and chips are **worked out** from the
+scores instead (`compute.js`): a race's score is the seven picks' points,
+plus the boosted driver once more (2×) or twice more (x3 Boost), minus 10
+per transfer beyond the free ones (2 a race, 3 with one carried over). A boost
+is shown only when exactly one driver explains the score (about 84% of
+races). Chips are shown only when the numbers point to a single race: x3 Boost
+(a single 3× fit), No Negative (fits only once negatives are wiped), Limitless
+(3+ changes, then the old team returns) and Wildcard (4+ changes, no penalty).
+Autopilot and Final Fix leave no trace, so they show as not detected. Team
+value means the seven picks at that round's prices.
 
 ## The clock: what keeps it fresh
 

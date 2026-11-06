@@ -1084,3 +1084,11 @@ html, body { overflow-x: clip; }
 .whn .n, .whn .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 a.rrow { text-decoration: none; color: inherit; }
 .rlist.races a.rrow.todo.on { cursor: pointer; }
+
+/* worked-out boost badge in compact rows, and the Chips section */
+.cbx { flex: none; padding: 1px 5px; border-radius: 5px; background: #0b0b0d; color: var(--lime); font: 700 10.5px var(--display); }
+.chipl { display: grid; gap: 6px; }
+.chiprow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: var(--fill); font-size: 13.5px; }
+.chiprow .chn { font-weight: 600; }
+.chiprow.used { box-shadow: inset 3px 0 0 var(--red); }
+.chiprow .chr b { font: 700 13px var(--display); color: var(--accent); margin-right: 2px; }
