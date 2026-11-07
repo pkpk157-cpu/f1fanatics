@@ -1,7 +1,8 @@
 /* The race weekend the GP tab shows, for scripts/fetch-data.js.
 
-   Which weekend: the last one raced, until the next one locks (teams lock at
-   its first scored session); from then on, the next one.
+   Which weekend: the last one raced, until the next race week begins (three
+   days before the next weekend locks at its first scored session); from then
+   on, the next one.
 
    What it holds:
      sessions  every session of the weekend (FP1-3, sprint qualifying, sprint,
@@ -44,10 +45,12 @@ async function of1(path) {
 const ordNum = (s) => { const n = parseInt(String(s || ""), 10); return isFinite(n) && n > 0 ? n : null; };
 const iso = (s) => { const t = Date.parse(s); return isFinite(t) ? new Date(t).toISOString() : null; };
 
-// the weekend to show: the last raced, until the next one locks
+// the weekend to show: the last raced, until the next race week begins (three days before
+// the next weekend locks, so its practice sessions are on the GP tab); then the next one
+const RACE_WEEK = 3 * 24 * 60 * 60 * 1000;
 function currentRound(schedule, N, now) {
   const next = schedule.find((s) => s.round === N + 1);
-  if (next && next.lock && now >= Date.parse(next.lock)) return next.round;
+  if (next && next.lock && now >= Date.parse(next.lock) - RACE_WEEK) return next.round;
   if (N > 0) return N;
   return schedule.length ? schedule[0].round : null;
 }

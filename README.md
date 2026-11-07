@@ -25,7 +25,8 @@ Five tabs in a bar docked to the bottom, each split into sub-tabs at the top:
   The names below pick which lines are highlighted, each in its own colour
   (the leader and you to start with); **All** highlights everyone
 - **GP** (centre; its label is the weekend's three letters, e.g. MEX): the last race
-  weekend until the next one locks, then the next. Your team for that weekend
+  weekend until the next race week begins (three days before it locks, so its
+  practice is there), then the next. Your team for that weekend
   with its points, your total (live while a session runs, provisional once it
   ends, final once F1 scores the round, with your place in the round), and
   every session: practice (and sprint qualifying) with where your drivers

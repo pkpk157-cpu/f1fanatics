@@ -690,11 +690,12 @@
   function niceTicks(lo, hi, n) { var s = niceStep(hi - lo, n), out = []; for (var v = Math.ceil(lo / s) * s; v <= hi + 1e-9; v += s) out.push(Math.round(v * 100) / 100); return out; }
 
   /* ---------------- GP: the race weekend, session by session ---------------- */
-  // the last weekend raced, until the next one locks; then the next one
+  // the last weekend raced, until the next race week begins (three days before the next
+  // weekend locks); then the next one (same rule as scripts/weekend.js)
   function gpRound() {
     var M = S.model, sched = S.data.schedule || [];
     var next = sched.find(function (s) { return s.round === M.N + 1; });
-    if (next && next.lock && Date.now() >= Date.parse(next.lock)) return next.round;
+    if (next && next.lock && Date.now() >= Date.parse(next.lock) - 3 * 864e5) return next.round;
     return M.N || (sched[0] ? sched[0].round : null);
   }
   var GP_CODE = { "Qualifying": "Q", "Race": "R", "Sprint Qualifying": "S" };

@@ -10,11 +10,12 @@ const sched = [
   { round: 19, lock: "2026-10-31T21:00:00Z" },
   { round: 20, lock: "2026-11-07T18:00:00Z" }
 ];
-t("shows the last weekend raced until the next one locks", () => {
-  assert.strictEqual(currentRound(sched, 19, Date.parse("2026-11-06T12:00:00Z")), 19);
+t("shows the last weekend raced until the next race week begins", () => {
+  assert.strictEqual(currentRound(sched, 19, Date.parse("2026-11-04T17:59:00Z")), 19);
 });
-t("switches to the next weekend at its lock", () => {
-  assert.strictEqual(currentRound(sched, 19, Date.parse("2026-11-07T18:00:00Z")), 20);
+t("switches to the next weekend three days before it locks (before its practice)", () => {
+  assert.strictEqual(currentRound(sched, 19, Date.parse("2026-11-04T18:00:00Z")), 20);
+  assert.strictEqual(currentRound(sched, 19, Date.parse("2026-11-06T15:30:00Z")), 20); // São Paulo FP1
 });
 t("before any round is raced, the first weekend", () => {
   assert.strictEqual(currentRound(sched, 0, Date.parse("2026-01-01T00:00:00Z")), 19);
